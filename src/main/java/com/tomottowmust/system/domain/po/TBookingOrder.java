@@ -7,8 +7,6 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 import com.baomidou.mybatisplus.annotation.TableId;
 import java.io.Serializable;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -25,7 +23,6 @@ import lombok.experimental.Accessors;
 @EqualsAndHashCode(callSuper = false)
 @Accessors(chain = true)
 @TableName("t_booking_order")
-@ApiModel(value="TBookingOrder对象", description="")
 public class TBookingOrder implements Serializable {
 
     private static final long serialVersionUID = 1L;

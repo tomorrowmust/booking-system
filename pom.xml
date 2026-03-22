@@ -1,39 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.12</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>3.2.4</version> <!-- 建议用 3.2.x 稳定版 -->
+        <relativePath/>
     </parent>
+
     <groupId>com.tomottowmust</groupId>
     <artifactId>system</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>system</name>
-    <description>system</description>
-    <url/>
-    <licenses>
-        <license/>
-    </licenses>
-    <developers>
-        <developer/>
-    </developers>
-    <scm>
-        <connection/>
-        <developerConnection/>
-        <tag/>
-        <url/>
-    </scm>
+    <description>高并发预约系统</description>
+
     <properties>
-        <java.version>17</java.version> <!-- 必须 JDK 17+ -->
+        <java.version>17</java.version>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
         <redisson.version>3.24.3</redisson.version>
         <rocketmq.version>2.2.3</rocketmq.version>
         <hutool.version>5.8.26</hutool.version>
-        <jjwt.version>0.12.5</jjwt.version>
-        <knife4j.version>4.4.0</knife4j.version>
+        <knife4j.version>4.4.0</knife4j.version> <!-- 稳定版本 -->
     </properties>
 
     <dependencies>
@@ -57,11 +48,11 @@
         </dependency>
         <dependency>
             <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-spring-boot3-starter</artifactId> <!-- 注意 Spring Boot 3 专用 starter -->
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <!-- 4. 缓存与分布式锁 (核心亮点) -->
+        <!-- 4. 缓存与分布式锁 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
@@ -72,33 +63,14 @@
             <version>${redisson.version}</version>
         </dependency>
 
-        <!-- 5. 消息队列 (削峰/解耦) -->
+        <!-- 5. 消息队列 -->
         <dependency>
             <groupId>org.apache.rocketmq</groupId>
             <artifactId>rocketmq-spring-boot-starter</artifactId>
             <version>${rocketmq.version}</version>
         </dependency>
 
-        <!-- 6. 安全认证 (JWT) -->
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.jsonwebtoken</groupId>
-            <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- 7. 工具类 -->
+        <!-- 6. 工具类 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -110,29 +82,25 @@
             <version>${hutool.version}</version>
         </dependency>
 
-        <!-- 8. 接口文档 (Knife4j) -->
+        <!-- 7. 接口文档 (Knife4j - 会自动传递 SpringDoc 依赖) -->
+        <!-- ⚠️ 不要手动引入 springdoc-openapi-starter-webmvc-ui -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>${knife4j.version}</version>
         </dependency>
 
-        <!-- 9. 监控 (Actuator) -->
+        <!-- 8. 监控 (Actuator) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- 10. 测试 -->
+        <!-- 9. 测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.springfox</groupId>
-            <artifactId>springfox-swagger-common</artifactId>
-            <version>3.0.0</version>
         </dependency>
     </dependencies>
 
