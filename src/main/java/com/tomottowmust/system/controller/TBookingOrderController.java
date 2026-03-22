@@ -1,9 +1,12 @@
 package com.tomottowmust.system.controller;
 
 
-import org.springframework.web.bind.annotation.RequestMapping;
-
-import org.springframework.web.bind.annotation.RestController;
+import com.tomottowmust.system.domain.dto.Result;
+import com.tomottowmust.system.service.ITBookingOrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.annotation.Resource;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * <p>
@@ -13,8 +16,20 @@ import org.springframework.web.bind.annotation.RestController;
  * @author tomorrowmust
  * @since 2026-03-21
  */
+@Tag(name = "预约相关接口")
 @RestController
-@RequestMapping("/booking-order")
+@RequestMapping("/booking")
 public class TBookingOrderController {
+
+    @Resource
+    private ITBookingOrderService bookingOrderService;
+
+    @PostMapping
+    @Operation(description = "新增预约")
+    public Result saveBookingOrder(@RequestParam(value = "resource_id", required = true) Long resourceId,
+                                   @RequestParam(value = "stock_id", required = true) Long stockId){
+        return bookingOrderService.saveBookingOrder(resourceId,stockId);
+    }
+
 
 }

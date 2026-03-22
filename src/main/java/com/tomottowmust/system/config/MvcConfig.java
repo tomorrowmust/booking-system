@@ -19,7 +19,11 @@ public class MvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**");
         registry.addInterceptor(new LoginInterceptor()).excludePathPatterns(
                 "/user/login",
-                "/user/code"
+                "/user/code",
+                "/doc.html",
+                "/swagger-ui/**",
+                "/v3/api-docs/**",
+                "/webjars/**"
                 );//TODO 添加需要拦截的路径
     }
 }

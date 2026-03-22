@@ -1,6 +1,7 @@
 package com.tomottowmust.system.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tomottowmust.system.domain.dto.Result;
 import com.tomottowmust.system.domain.po.TBookingOrder;
 
 /**
@@ -13,4 +14,5 @@ import com.tomottowmust.system.domain.po.TBookingOrder;
  */
 public interface ITBookingOrderService extends IService<TBookingOrder> {
 
+    Result saveBookingOrder(Long resourceId,Long stockId);
 }

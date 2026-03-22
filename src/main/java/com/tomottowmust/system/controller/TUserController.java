@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "用户有关接口")
 @RestController
-@RequestMapping("/user")
+@RequestMapping("/auth")
 public class TUserController {
 
     @Resource
