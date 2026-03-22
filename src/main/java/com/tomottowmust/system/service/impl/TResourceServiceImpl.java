@@ -80,7 +80,12 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
         saveOrUpdate(resource);
         TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
+        stock.setId(null);
         stock.setResourceId(resource.getId());
+        Long stockId = resourceDTO.getStockId();
+        if(stockId !=null){
+            stock.setId(stockId);
+        }
         stockService.saveOrUpdate(stock);
         return Result.ok();
     }
@@ -88,10 +93,9 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     @Override
     @Transactional
     public Result deleteResource(Long id) {
-        removeById(id);
-        stockService.remove(new LambdaQueryWrapper<TResourceStock>().eq(TResourceStock::getResourceId, id));
+        update().eq("id",id)
+                .set("is_deleted",1)
+                .update();
         return Result.ok();
     }
-
-
 }

@@ -32,9 +32,16 @@ public class TResourceAdminController {
         return resourceService.saveResource(resourceDTO);
     }
     @Operation(description = "删除资源")
-    @DeleteMapping
+    @DeleteMapping("/{id}")
     public Result deleteResource(@PathVariable Long id){
         return resourceService.deleteResource(id);
+    }
+
+    @Operation(description = "查询资源")
+    @GetMapping
+    public Result getResourcePage(@RequestParam(value = "name", required = false) String name,
+                                  @RequestParam(value = "current", defaultValue = "1") Integer current){
+        return resourceService.queryResourcePage(name,current);
     }
 
 }
