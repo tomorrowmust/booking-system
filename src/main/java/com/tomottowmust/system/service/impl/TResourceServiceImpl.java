@@ -3,7 +3,9 @@ package com.tomottowmust.system.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tomottowmust.system.domain.dto.ResourceDTO;
 import com.tomottowmust.system.domain.dto.Result;
 import com.tomottowmust.system.domain.po.TResource;
 import com.tomottowmust.system.domain.po.TResourceStock;
@@ -15,6 +17,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomottowmust.system.service.ITResourceStockService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -70,4 +73,25 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
                 .one();
         return Result.ok(resource);
     }
+
+    @Override
+    @Transactional
+    public Result saveResource(ResourceDTO resourceDTO) {
+        TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
+        saveOrUpdate(resource);
+        TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
+        stock.setResourceId(resource.getId());
+        stockService.saveOrUpdate(stock);
+        return Result.ok();
+    }
+
+    @Override
+    @Transactional
+    public Result deleteResource(Long id) {
+        removeById(id);
+        stockService.remove(new LambdaQueryWrapper<TResourceStock>().eq(TResourceStock::getResourceId, id));
+        return Result.ok();
+    }
+
+
 }

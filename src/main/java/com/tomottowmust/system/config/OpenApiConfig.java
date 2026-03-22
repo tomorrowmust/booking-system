@@ -53,6 +53,13 @@ public class OpenApiConfig {
                 .pathsToMatch("/booking/**", "/stock/**")
                 .build();
     }
+    @Bean
+    public GroupedOpenApi adminApi() {
+        return GroupedOpenApi.builder()
+                .group("管理员管理业务")
+                .pathsToMatch("/admin/**")
+                .build();
+    }
 
     @Bean
     public GroupedOpenApi userApi() {
