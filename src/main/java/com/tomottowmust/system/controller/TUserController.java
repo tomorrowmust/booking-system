@@ -39,4 +39,10 @@ public class TUserController {
     public Result login(@RequestBody LoginFormDTO loginFormDTO){
         return userService.login(loginFormDTO);
     }
+
+    @Operation(description = "测试拦截器")
+    @GetMapping("/sayHello")
+    public Result sayHello(){
+        return Result.ok("hello");
+    }
 }

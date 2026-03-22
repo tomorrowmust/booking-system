@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.ArrayList;
 
+//配置api 文档
 @Configuration
 public class OpenApiConfig {
 

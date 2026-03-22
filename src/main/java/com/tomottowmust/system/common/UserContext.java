@@ -1,9 +1,11 @@
 package com.tomottowmust.system.common;
 
-public class UserContext {
-    private static final ThreadLocal<UserContext>user=new ThreadLocal<>();
+import com.tomottowmust.system.domain.dto.UserDTO;
 
-    public static void saveUser(UserContext userDTO){
+public class UserContext {
+    private static final ThreadLocal<UserDTO>user=new ThreadLocal<>();
+
+    public static void saveUser(UserDTO userDTO){
         user.set(userDTO);
     }
 
@@ -11,7 +13,7 @@ public class UserContext {
         user.remove();
     }
 
-    public static UserContext getUser(){
+    public static UserDTO getUser(){
         return user.get();
     }
 
