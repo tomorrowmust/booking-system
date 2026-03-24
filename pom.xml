@@ -22,7 +22,7 @@
         <java.version>17</java.version>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
         <redisson.version>3.24.3</redisson.version>
-        <rocketmq.version>2.2.3</rocketmq.version>
+        <rocketmq.version>2.3.1</rocketmq.version>
         <hutool.version>5.8.26</hutool.version>
         <knife4j.version>4.4.0</knife4j.version> <!-- 稳定版本 -->
     </properties>

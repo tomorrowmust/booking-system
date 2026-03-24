@@ -54,9 +54,6 @@ knife4j:
     enable-filter-multipart-api-method-type: POST
 
 rocketmq:
-  name-server: 8.136.215.55:9876
+  name-server: 8.136.215.55:9876  # 前后无空格！无引号！
   producer:
     group: booking-producer-group
-    send-message-timeout: 3000
-    retry-times-when-send-failed: 2
-    retry-times-when-send-async-failed: 2

@@ -6,7 +6,7 @@ local userId=ARGV[2]
 --库存key
 local stockKey='order:stock:' .. stockId
 --订单key
-local orderKey='booking:order:' .. userId
+local orderKey='booking:order:' .. stockId
 
 --脚本业务
 local stock = redis.call('get', stockKey)

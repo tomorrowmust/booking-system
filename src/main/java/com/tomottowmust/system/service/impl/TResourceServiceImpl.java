@@ -101,14 +101,13 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
         saveOrUpdate(resource);
         TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
-        stock.setId(null);
         stock.setResourceId(resource.getId());
         Long stockId = resourceDTO.getStockId();
         if(stockId !=null){
             stock.setId(stockId);
         }
         stockService.saveOrUpdate(stock);
-        String key=ORDER_STOCK_KEY+stockId;
+        String key=ORDER_STOCK_KEY+stock.getId();
         //把库存数据缓存到redis
         stringRedisTemplate.opsForValue().set(key,stock.getRemainStock().toString());
         return Result.ok();
