@@ -26,10 +26,8 @@ public class TBookingOrderController {
 
     @PostMapping
     @Operation(description = "新增预约")
-    public Result saveBookingOrder(@RequestParam(value = "resource_id", required = true) Long resourceId,
-                                   @RequestParam(value = "stock_id", required = true) Long stockId){
-        return bookingOrderService.saveBookingOrder(resourceId,stockId);
+    public Result saveBookingOrder(@RequestParam(value = "stock_id", required = true) Long stockId){
+        return bookingOrderService.saveBookingOrder(stockId);
     }
-
 
 }

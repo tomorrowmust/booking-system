@@ -83,7 +83,6 @@
         </dependency>
 
         <!-- 7. 接口文档 (Knife4j - 会自动传递 SpringDoc 依赖) -->
-        <!-- ⚠️ 不要手动引入 springdoc-openapi-starter-webmvc-ui -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
@@ -101,6 +100,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
         </dependency>
     </dependencies>
 

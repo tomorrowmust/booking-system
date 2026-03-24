@@ -14,5 +14,7 @@ import com.tomottowmust.system.domain.po.TBookingOrder;
  */
 public interface ITBookingOrderService extends IService<TBookingOrder> {
 
-    Result saveBookingOrder(Long resourceId,Long stockId);
+    Result saveBookingOrder(Long stockId);
+
+    void createOrder(Long stockId, Long userId);
 }

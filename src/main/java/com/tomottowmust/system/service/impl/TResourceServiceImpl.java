@@ -3,7 +3,7 @@ package com.tomottowmust.system.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tomottowmust.system.domain.dto.ResourceDTO;
 import com.tomottowmust.system.domain.dto.Result;
@@ -16,6 +16,8 @@ import com.tomottowmust.system.service.ITResourceService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomottowmust.system.service.ITResourceStockService;
 import jakarta.annotation.Resource;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.tomottowmust.system.domain.constant.RedisConstant.*;
 import static com.tomottowmust.system.domain.constant.SystemConstants.MAX_PAGE_SIZE;
 
 /**
@@ -39,15 +42,33 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
 
     @Resource
     private ITResourceStockService stockService;
+    @Resource
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public Result queryResourcePage(String name, Integer current) {
+    public Result queryResourcePage(String type, Integer current) {
+        //查询热点数据到缓存
+        String key=CACHE_RESOURCE_KEY+type+CACHE_PAGE_KEY+current;
+        String json = stringRedisTemplate.opsForValue().get(key);
+        if(StrUtil.isNotBlank(json)){
+            return Result.ok(JSONUtil.toList(json,ResourceVO.class));
+        }
+        List<ResourceVO> vos = getResourceVOS(type, current);
+        if (vos.isEmpty()) {
+            return Result.fail("数据不存在！");
+        }
+        //保存数据到缓存
+        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(vos));
+        return Result.ok(vos);
+    }
+
+    private @NonNull List<ResourceVO> getResourceVOS(String name, Integer current) {
         Page<TResource> page = query().like(StrUtil.isNotBlank(name), "name", name)
                 .eq("status",1)
                 .page(new Page<>(current, MAX_PAGE_SIZE));
         List<TResource> records = page.getRecords();
         if(records==null){
-            return Result.ok(Collections.emptyList());
+            return Collections.emptyList();
         }
         List<ResourceVO> vos = BeanUtil.copyToList(records, ResourceVO.class);
         List<Long> ids = records.stream().map(TResource::getId).toList();
@@ -63,7 +84,7 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
                 vo.setStockList(stockList);
             }
         }
-        return Result.ok(vos);
+        return vos;
     }
 
     @Override
@@ -87,6 +108,9 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
             stock.setId(stockId);
         }
         stockService.saveOrUpdate(stock);
+        String key=ORDER_STOCK_KEY+stockId;
+        //把库存数据缓存到redis
+        stringRedisTemplate.opsForValue().set(key,stock.getRemainStock().toString());
         return Result.ok();
     }
 

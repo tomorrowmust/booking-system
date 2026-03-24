@@ -18,8 +18,8 @@ public class MvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new RefreshTokenInterceptor(stringRedisTemplate)).addPathPatterns("/**");
         registry.addInterceptor(new LoginInterceptor()).excludePathPatterns(
-                "/user/login",
-                "/user/code",
+                "/auth/login",
+                "/auth/code",
                 "/doc.html",
                 "/swagger-ui/**",
                 "/v3/api-docs/**",
