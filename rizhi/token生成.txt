@@ -1,0 +1,33 @@
+┌─────────────────────────────────────────────────────────┐
+│  64位 Long 类型 ID                                        │
+├────────────────┬──────────────────────────────────────────┤
+│  32位 时间戳    │  32位 序列号（Redis自增）                  │
+│  (秒级差值)     │  (每天从1开始自增)                        │
+└────────────────┴──────────────────────────────────────────┘
+代码拆解
+1. 常量定义
+java
+复制
+public static final long BEGIN_TIMESTAMP = 1767225600L;  // 基准时间：2025-12-01 00:00:00 UTC
+public static final int COUNT_BITS = 32;                  // 序列号占32位
+2. 生成时间戳（32位）
+java
+复制
+LocalDateTime now = LocalDateTime.now();
+long nowSecond = now.toEpochSecond(ZoneOffset.UTC);  // 当前时间转秒级时间戳
+long timestamp = nowSecond - BEGIN_TIMESTAMP;         // 与基准时间的差值
+为什么用差值？ 减少位数，32位能表示约 136 年（2^32 / 365/24/3600）
+3. 生成序列号（32位）
+java
+复制
+String date = now.format(DateTimeFormatter.ofPattern("yyyy:MM:dd"));
+long count = stringRedisTemplate.opsForValue().increment(
+    "icr:" + keyPrefix + ":" + date  // 例如：icr:order:2026:03:21
+);
+使用 Redis INCR 命令，原子自增
+Key 按天分割，每天从 1 开始
+不同业务用 keyPrefix 区分
+4. 拼接返回
+java
+复制
+return timestamp << COUNT_BITS | count;

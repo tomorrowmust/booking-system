@@ -15,6 +15,7 @@
     </div>
     <div class="nav">
       <a class="btn" href="user-resource.html">用户端</a>
+      <a class="btn" href="stock-change-log.html">库存日志</a>
       <a class="btn ghost" href="index.html">首页</a>
       <button id="logoutBtn" class="btn danger" type="button">退出登录</button>
     </div>
@@ -201,6 +202,20 @@
     return String(v).slice(0, 10);
   }
 
+  function getTotalStock(s) {
+    if (!s) return 0;
+    const v = s.totalStock ?? s.total_stock ?? s.totalstock ?? null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function getRemainStock(s) {
+    if (!s) return 0;
+    const v = s.remainStock ?? s.remain_stock ?? s.remainstock ?? null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  }
+
   async function fetchResourceType(resourceId) {
     // 管理列表没有 type 字段，编辑时补齐
     const data = await SystemApi.api("/user/resource/" + resourceId, {
@@ -229,17 +244,20 @@
     rows.forEach(({ resource, stock }) => {
       const tr = document.createElement("tr");
       const timeText = stock ? `${stock.slotStart || ""} - ${stock.slotEnd || ""}` : "-";
+      const hasStock = !!stock && stock.id != null;
       tr.innerHTML = `
         <td>${resource.id ?? "-"}</td>
         <td>${resource.name ?? "-"}</td>
         <td>${stock?.stockDate ? toDateInput(stock.stockDate) : "-"}</td>
         <td>${timeText}</td>
-        <td>${stock?.totalStock ?? "-"}</td>
-        <td>${stock?.remainStock ?? "-"}</td>
+        <td>${hasStock ? getTotalStock(stock) : "-"}</td>
+        <td>${hasStock ? getRemainStock(stock) : "-"}</td>
         <td>
-          <button class="btn" type="button" data-action="edit" data-resource-id="${resource.id}" data-stock-id="${stock ? stock.id : ""}">编辑</button>
+          <button class="btn table-btn" type="button" data-action="edit" data-resource-id="${resource.id}" data-stock-id="${hasStock ? stock.id : ""}">
+            ${hasStock ? "编辑" : "新增/编辑时段"}
+          </button>
           <span style="display:inline-block;width:8px;"></span>
-          <button class="btn danger" type="button" data-action="delete" data-resource-id="${resource.id}">删除</button>
+          <button class="btn danger table-btn" type="button" data-action="delete" data-resource-id="${resource.id}">删除</button>
         </td>
       `;
       tbody.appendChild(tr);

@@ -28,14 +28,15 @@ public class TResourceController {
     @Operation(description = "分页查询资源 支持名字查询")
     @GetMapping("/page")
     public Result queryResourcePage(
-            @RequestParam(value = "name", required = false,defaultValue = "all") String name,
+            @RequestParam(value = "type", required = false) Integer type,
             @RequestParam(value = "current", defaultValue = "1") Integer current){
-        return resourceService.queryResourcePage(name,current);
+        return resourceService.queryResourceUserPage(type,current);
     }
+
     @Operation(description = "根据 id查询资源")
     @GetMapping("/{id}")
     public Result queryResourceById(@PathVariable Long id){
-        return resourceService.queryResourceById(id);
+        return resourceService.queryResourceStockById(id);
     }
 
 }

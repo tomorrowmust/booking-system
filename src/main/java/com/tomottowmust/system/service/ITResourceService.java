@@ -15,11 +15,13 @@ import com.tomottowmust.system.domain.po.TResource;
  */
 public interface ITResourceService extends IService<TResource> {
 
-    Result queryResourcePage(String name, Integer current);
+    Result queryResourceAdminPage(String name, Integer current);
 
-    Result queryResourceById(Long id);
+    Result queryResourceStockById(Long id);
 
     Result saveOrUpdateResource(ResourceDTO resourceDTO);
 
     Result deleteResource(Long id);
+
+    Result queryResourceUserPage(Integer type, Integer current);
 }

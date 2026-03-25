@@ -18,4 +18,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class TStockChangeLogServiceImpl extends ServiceImpl<TStockChangeLogMapper, TStockChangeLog> implements ITStockChangeLogService {
 
+    @Override
+    public com.tomottowmust.system.domain.dto.Result queryStockChangeLogPage(String orderNo, Long stockId, Integer current) {
+        int pageNum = (current == null || current < 1) ? 1 : current;
+        int pageSize = com.tomottowmust.system.domain.constant.SystemConstants.MAX_PAGE_SIZE;
+
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<TStockChangeLog> page = query()
+                .like(cn.hutool.core.util.StrUtil.isNotBlank(orderNo), "order_no", orderNo)
+                .eq(stockId != null, "stock_id", stockId)
+                .page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(pageNum, pageSize));
+
+        return com.tomottowmust.system.domain.dto.Result.ok(page.getRecords(), page.getTotal());
+    }
 }

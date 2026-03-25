@@ -50,7 +50,7 @@ public class OpenApiConfig {
     public GroupedOpenApi bookingApi() {
         return GroupedOpenApi.builder()
                 .group("预约核心业务")
-                .pathsToMatch("/booking/**", "/stock/**")
+                .pathsToMatch("/booking/**", "/stock/**", "/stock-change-log/**")
                 .build();
     }
     @Bean

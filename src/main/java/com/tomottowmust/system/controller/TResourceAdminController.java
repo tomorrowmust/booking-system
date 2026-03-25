@@ -41,7 +41,7 @@ public class TResourceAdminController {
     @GetMapping
     public Result getResourcePage(@RequestParam(value = "name", required = false) String name,
                                   @RequestParam(value = "current", defaultValue = "1") Integer current){
-        return resourceService.queryResourcePage(name,current);
+        return resourceService.queryResourceAdminPage(name,current);
     }
 
 }

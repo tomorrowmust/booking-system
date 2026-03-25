@@ -74,6 +74,7 @@ body{
   display:inline-flex;
   align-items:center;
   gap: 8px;
+  white-space: nowrap;
 }
 .btn:hover{ border-color: rgba(94,234,212,.35); transform: translateY(-1px); }
 .btn:active{ transform: translateY(0); }
@@ -143,6 +144,22 @@ input:focus, select:focus{
   border-color: rgba(94,234,212,.5);
 }
 
+select{
+  color-scheme: dark;
+}
+
+/* 部分浏览器对 option 样式支持有限，但加上以增强深色效果 */
+select option{
+  background: #0b1220;
+  color: rgba(255,255,255,.92);
+}
+
+.table-btn{
+  font-size: 12px;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
 table{
   width:100%;
   border-collapse: collapse;
@@ -205,5 +222,17 @@ tbody tr:hover td{
   background: rgba(255,255,255,.03);
   font-size: 12px;
   color: rgba(255,255,255,.78);
+}
+
+/* 库存选择弹窗里的“库存卡片”按钮，避免 `.btn` 默认居中导致文字错位 */
+.stock-option-btn{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  text-align:left;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 14px;
+  line-height: 1.25;
 }
 

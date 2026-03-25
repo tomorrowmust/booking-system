@@ -47,28 +47,16 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     private StringRedisTemplate stringRedisTemplate;
 
     @Override
-    public Result queryResourcePage(String type, Integer current) {
-        //查询热点数据到缓存
-        String key=CACHE_RESOURCE_TYPE_KEY+type+":"+CACHE_PAGE_KEY+current;
-        String json = stringRedisTemplate.opsForValue().get(key);
-        if(StrUtil.isNotBlank(json)){
-            return Result.ok(JSONUtil.toList(json,ResourceVO.class));
-        }
-        List<ResourceVO> vos = getResourceVOS(type, current);
+    public Result queryResourceAdminPage(String name, Integer current) {
+        List<ResourceVO> vos = getResourceAllVOS(name, current);
         if (vos.isEmpty()) {
             return Result.fail("数据不存在！");
         }
-        //保存数据到缓存
-        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(vos));
         return Result.ok(vos);
     }
 
-    private @NonNull List<ResourceVO> getResourceVOS(String name, Integer current) {
-        if(name.equals("all")){
-            name=null;
-        }
+    private @NonNull List<ResourceVO> getResourceAllVOS(String name, Integer current) {
         Page<TResource> page = query().like(StrUtil.isNotBlank(name), "name", name)
-                .eq("status",1)
                 .page(new Page<>(current, MAX_PAGE_SIZE));
         List<TResource> records = page.getRecords();
         if(CollUtil.isEmpty(records)){
@@ -92,20 +80,19 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     }
 
     @Override
-    public Result queryResourceById(Long id) {
+    public Result queryResourceStockById(Long id) {
         String key=CACHE_RESOURCE_KEY+id;
         String json = stringRedisTemplate.opsForValue().get(key);
         if(json==null){
-            TResource resource = query().eq("id", id)
-                    .eq("status",1)
-                    .one();
+            List<TResourceStock> stocks = stockService.query().eq("resource_id", id)
+                    .list();
             //redis 保存空值防止缓存穿透//TODO 布隆过滤器
-            String  jsonStr = resource==null? "" : JSONUtil.toJsonStr(resource);
+            String  jsonStr = CollUtil.isEmpty(stocks)? "" : JSONUtil.toJsonStr(stocks);
             stringRedisTemplate.opsForValue().set(key,jsonStr);
-            return Result.ok(resource);
+            return Result.ok(stocks);
         }
-        TResource resource = JSONUtil.toBean(json, TResource.class);
-        return Result.ok(resource);
+        List<TResourceStock> stocks = JSONUtil.toList(json, TResourceStock.class);
+        return Result.ok(stocks);
     }
 
     @Override
@@ -136,5 +123,47 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
                 .set("is_deleted",1)
                 .update();
         return Result.ok();
+    }
+
+
+    @Override
+    public Result queryResourceUserPage(Integer type, Integer current) {
+        //查询热点数据到缓存
+        String key=CACHE_RESOURCE_TYPE_KEY+ type +":"+CACHE_PAGE_KEY+current;
+        String json = stringRedisTemplate.opsForValue().get(key);
+        if(StrUtil.isNotBlank(json)){
+            return Result.ok(JSONUtil.toList(json,ResourceVO.class));
+        }
+        List<ResourceVO> vos = getResourceVOS(type, current);
+        if (vos.isEmpty()) {
+            return Result.fail("数据不存在！");
+        }
+        //保存数据到缓存
+        stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(vos));
+        return Result.ok(vos);
+    }
+
+    private List<ResourceVO> getResourceVOS(Integer type, Integer current) {
+        Page<TResource> page = query()
+                .eq(type!=null,"type",type)
+                .eq("status",1)
+                .page(new Page<>(current, MAX_PAGE_SIZE));
+        List<TResource> records = page.getRecords();
+        if(CollUtil.isEmpty(records)){
+            return Collections.emptyList();
+        }
+        List<ResourceVO> vos = BeanUtil.copyToList(records, ResourceVO.class);
+        List<Long> ids = records.stream().map(TResource::getId).toList();
+        List<TResourceStock> stocks = stockService.query()
+                .in("resource_id", ids)
+                .list();
+        Map<Long, List<TResourceStock>> stockMap = stocks.stream()
+                .collect(Collectors.groupingBy(TResourceStock::getResourceId));
+        for (ResourceVO vo : vos) {
+            List<TResourceStock> stockList = stockMap.get(vo.getId());
+            vo.setTotalStock(stockList.stream().mapToInt(TResourceStock::getTotalStock).sum());
+            vo.setRemainStock(stockList.stream().mapToInt(TResourceStock::getRemainStock).sum());
+        }
+        return vos;
     }
 }

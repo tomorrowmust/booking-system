@@ -1,0 +1,153 @@
+1. 用户表 (t_user)
+基础用户信息，注意密码加密存储。
+
+CREATE TABLE `t_user` (
+  `id` bigint(20) NOT NULL COMMENT '主键 ID (雪花算法)',
+  `username` varchar(50) NOT NULL COMMENT '用户名',
+  `password` varchar(100) NOT NULL COMMENT '加密密码',
+  `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态 1 正常 0 禁用',
+  `version` int(11) NOT NULL DEFAULT '0' COMMENT '乐观锁版本号',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '逻辑删除 0 否 1 是',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_username` (`username`),
+  UNIQUE KEY `uk_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+2. 资源表 (t_resource)
+定义可预约的对象（如：羽毛球场 1 号、张医生诊室）。
+
+CREATE TABLE `t_resource` (
+  `id` bigint(20) NOT NULL COMMENT '主键 ID',
+  `name` varchar(100) NOT NULL COMMENT '资源名称',
+  `type` tinyint(4) NOT NULL COMMENT '资源类型 1 球场 2 诊室 3 会议室',
+  `description` varchar(500) DEFAULT NULL COMMENT '描述',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态 1 可用 0 停用',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '逻辑删除',
+  PRIMARY KEY (`id`),
+  KEY `idx_type_status` (`type`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资源信息表';
+3. 时段库存表 (t_resource_stock) ⭐⭐⭐⭐⭐
+这是核心表！ 高并发竞争的重点。将库存细化到“某一天 + 某一时段”。
+
+CREATE TABLE `t_resource_stock` (
+  `id` bigint(20) NOT NULL COMMENT '主键 ID',
+  `resource_id` bigint(20) NOT NULL COMMENT '资源 ID',
+  `stock_date` date NOT NULL COMMENT '库存日期 2023-10-27',
+  `slot_start` time NOT NULL COMMENT '时段开始 09:00:00',
+  `slot_end` time NOT NULL COMMENT '时段结束 10:00:00',
+  `total_stock` int(11) NOT NULL COMMENT '总库存',
+  `remain_stock` int(11) NOT NULL COMMENT '剩余库存',
+  `version` int(11) NOT NULL DEFAULT '0' COMMENT '乐观锁版本号 (CAS 核心)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  -- 核心索引：查询某资源某天的所有时段
+  KEY `idx_resource_date` (`resource_id`, `stock_date`),
+  -- 唯一索引：防止重复创建同一时段库存 (业务约束)
+  UNIQUE KEY `uk_resource_date_slot` (`resource_id`, `stock_date`, `slot_start`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资源时段库存表';
+设计亮点：
+
+version 字段：用于数据库层面的乐观锁更新，防止超卖。
+uk_resource_date_slot 唯一索引：保证同一资源在同一天的同一时段只有一条库存记录。
+remain_stock：直接存储剩余数量，避免每次 COUNT 订单表，提高查询性能。
+4. 预约订单表 (t_booking_order) ⭐⭐⭐⭐
+记录用户的预约行为，包含幂等性设计。
+
+CREATE TABLE `t_booking_order` (
+  `id` bigint(20) NOT NULL COMMENT '主键 ID',
+  `order_no` varchar(64) NOT NULL COMMENT '订单号 (唯一)',
+  `user_id` bigint(20) NOT NULL COMMENT '用户 ID',
+  `resource_id` bigint(20) NOT NULL COMMENT '资源 ID',
+  `stock_id` bigint(20) NOT NULL COMMENT '库存记录 ID (快照)',
+  `stock_date` date NOT NULL COMMENT '预约日期',
+  `slot_start` time NOT NULL COMMENT '预约时段开始',
+  `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '状态 0 待确认 1 成功 2 取消 3 过期',
+  `pay_amount` decimal(10,2) DEFAULT '0.00' COMMENT '金额 (预留)',
+  `idempotent_key` varchar(64) DEFAULT NULL COMMENT '幂等性 token (可选)',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `is_deleted` tinyint(4) NOT NULL DEFAULT '0' COMMENT '逻辑删除',
+  PRIMARY KEY (`id`),
+  -- 核心：防止同一用户同一时段重复预约 (数据库级防重)
+  UNIQUE KEY `uk_user_resource_slot` (`user_id`, `resource_id`, `stock_date`, `slot_start`),
+  -- 核心：防止重复提交订单 (幂等性)
+  UNIQUE KEY `uk_order_no` (`order_no`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='预约订单表';
+设计亮点：
+
+uk_user_resource_slot 唯一索引：这是兜底策略。即使 Redis 锁失效，数据库也会报错 DuplicateKeyException，保证绝对不超约。
+order_no 唯一索引：配合前端传来的幂等号，防止网络重试导致重复下单。
+stock_id：冗余存储库存记录 ID，方便后续对账。
+5. 库存变更日志表 (t_stock_change_log) ⭐⭐⭐
+用于审计和对账，面试时提到这个会非常加分。
+
+CREATE TABLE `t_stock_change_log` (
+  `id` bigint(20) NOT NULL,
+  `order_no` varchar(64) NOT NULL COMMENT '关联订单号',
+  `stock_id` bigint(20) NOT NULL COMMENT '库存 ID',
+  `change_count` int(11) NOT NULL COMMENT '变动数量 -1 或 1',
+  `remain_stock` int(11) NOT NULL COMMENT '变动后剩余库存',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_order_no` (`order_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存变更流水表';
+6. 幂等性 Token 表 (t_idempotent_token) (可选)
+如果不用 Redis 存 Token，可以用这张表，但推荐用 Redis。
+
+CREATE TABLE `t_idempotent_token` (
+  `token` varchar(64) NOT NULL,
+  `user_id` bigint(20) NOT NULL,
+  `expire_time` datetime NOT NULL,
+  PRIMARY KEY (`token`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+四、关键设计解读 (面试话术)
+在面试中，当面试官问到数据库设计时，你可以这样回答：
+
+关于超卖/超约防护：
+
+“我在 t_resource_stock 表设计了 version 字段，更新库存时使用 UPDATE ... SET remain_stock = remain_stock - 1, version = version + 1 WHERE id = ? AND version = ? AND remain_stock > 0。这是数据库层面的乐观锁，即使并发请求同时到达，也只有一个能成功更新。”
+
+关于重复预约：
+
+“除了代码层的分布式锁，我在 t_booking_order 表建立了 uk_user_resource_slot 唯一联合索引。如果用户重复提交，数据库会抛出唯一键冲突异常，我在 Service 层捕获这个异常并返回友好提示。这是最终一致性保障。”
+
+关于查询性能：
+
+“预约列表查询非常频繁，我在 t_resource_stock 上建立了 idx_resource_date 联合索引。查询某天的所有时段时，可以直接覆盖索引，不需要回表，极大减少了 IO。”
+
+关于幂等性：
+
+“订单表有 uk_order_no 唯一索引。前端提交时携带一个 UUID，后端先检查 Redis，再落库。如果重试请求进来，因为订单号相同，数据库会拦截，保证了接口的幂等性。”
+
+五、Redis 缓存映射策略 (配合数据库)
+既然你主打缓存技术，数据库设计好后，必须说明 Redis 怎么存：
+
+库存缓存：
+Key: stock:resource:{resourceId}:date:{date}
+Value: Hash 结构 { "09:00": 10, "10:00": 5 } 或 String JSON。
+目的：查询时段列表时不查 DB。
+分布式锁：
+Key: lock:reserve:{stockId}
+目的：预约时锁住特定库存记录。
+用户预约状态：
+Key: user:booking:{userId}:date:{date}
+Value: Set 结构 { "resourceId:slot" }
+目的：快速判断用户当天是否已约，减少查订单表。
+
+
+用户 (user) 
+  │
+  │ 1:N
+  ▼
+预约订单 (booking_order) ────── N:1 ────── 时段库存 (resource_stock)
+                                       │
+                                       │ N:1
+                                       ▼
+                                    资源信息 (resource)
