@@ -29,7 +29,7 @@ public class TResourceAdminController {
     @Operation(description = "新增或修改资源")
     @PostMapping
     public Result saveResource(@RequestBody ResourceDTO resourceDTO){
-        return resourceService.saveResource(resourceDTO);
+        return resourceService.saveOrUpdateResource(resourceDTO);
     }
     @Operation(description = "删除资源")
     @DeleteMapping("/{id}")

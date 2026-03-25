@@ -50,8 +50,6 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
     @Resource
     private RocketMQTemplate rocketMQTemplate;
 
-    private ITBookingOrderService proxy;
-
     public static final DefaultRedisScript<Long> SECKILL_SCRIPT;
     static {
         SECKILL_SCRIPT=new DefaultRedisScript<>();

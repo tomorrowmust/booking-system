@@ -2,6 +2,7 @@ package com.tomottowmust.system.service.impl;
 
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -48,7 +49,7 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     @Override
     public Result queryResourcePage(String type, Integer current) {
         //查询热点数据到缓存
-        String key=CACHE_RESOURCE_KEY+type+CACHE_PAGE_KEY+current;
+        String key=CACHE_RESOURCE_TYPE_KEY+type+":"+CACHE_PAGE_KEY+current;
         String json = stringRedisTemplate.opsForValue().get(key);
         if(StrUtil.isNotBlank(json)){
             return Result.ok(JSONUtil.toList(json,ResourceVO.class));
@@ -63,11 +64,14 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     }
 
     private @NonNull List<ResourceVO> getResourceVOS(String name, Integer current) {
+        if(name.equals("all")){
+            name=null;
+        }
         Page<TResource> page = query().like(StrUtil.isNotBlank(name), "name", name)
                 .eq("status",1)
                 .page(new Page<>(current, MAX_PAGE_SIZE));
         List<TResource> records = page.getRecords();
-        if(records==null){
+        if(CollUtil.isEmpty(records)){
             return Collections.emptyList();
         }
         List<ResourceVO> vos = BeanUtil.copyToList(records, ResourceVO.class);
@@ -89,15 +93,24 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
 
     @Override
     public Result queryResourceById(Long id) {
-        TResource resource = query().eq("id", id)
-                .eq("status",1)
-                .one();
+        String key=CACHE_RESOURCE_KEY+id;
+        String json = stringRedisTemplate.opsForValue().get(key);
+        if(json==null){
+            TResource resource = query().eq("id", id)
+                    .eq("status",1)
+                    .one();
+            //redis 保存空值防止缓存穿透//TODO 布隆过滤器
+            String  jsonStr = resource==null? "" : JSONUtil.toJsonStr(resource);
+            stringRedisTemplate.opsForValue().set(key,jsonStr);
+            return Result.ok(resource);
+        }
+        TResource resource = JSONUtil.toBean(json, TResource.class);
         return Result.ok(resource);
     }
 
     @Override
     @Transactional
-    public Result saveResource(ResourceDTO resourceDTO) {
+    public Result saveOrUpdateResource(ResourceDTO resourceDTO) {
         TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
         saveOrUpdate(resource);
         TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
@@ -108,6 +121,9 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         }
         stockService.saveOrUpdate(stock);
         String key=ORDER_STOCK_KEY+stock.getId();
+        //保证一致性先修改数据库 再删除redis
+        //清空key 里的数据
+        stringRedisTemplate.delete(key);
         //把库存数据缓存到redis
         stringRedisTemplate.opsForValue().set(key,stock.getRemainStock().toString());
         return Result.ok();

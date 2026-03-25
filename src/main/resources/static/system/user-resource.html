@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>用户资源与预约</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="title">用户端 - 资源与预约</div>
+      <div class="sub">查看资源时段并进行预约（返回订单号）</div>
+    </div>
+    <div class="nav">
+      <a class="btn" href="admin-resource.html">管理员端</a>
+      <a class="btn ghost" href="index.html">首页</a>
+      <button id="logoutBtn" class="btn danger" type="button">退出登录</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>资源列表</h2>
+    <div class="row">
+      <div class="field" style="flex: 1 1 260px;">
+        <div class="label">按资源名称搜索（like）</div>
+        <input id="searchName" type="text" placeholder="输入名称关键词"/>
+      </div>
+      <div>
+        <button id="searchBtn" class="btn primary" type="button">查询</button>
+      </div>
+    </div>
+
+    <div style="height: 12px;"></div>
+
+    <div class="row" style="justify-content: space-between;">
+      <div class="small" id="pageInfo">当前页：1</div>
+      <div class="row">
+        <button id="prevBtn" class="btn" type="button">上一页</button>
+        <button id="nextBtn" class="btn" type="button">下一页</button>
+      </div>
+    </div>
+
+    <div style="height: 12px;"></div>
+
+    <table>
+      <thead>
+      <tr>
+        <th>资源名称</th>
+        <th>日期</th>
+        <th>时间段</th>
+        <th>总库存</th>
+        <th>剩余库存</th>
+        <th>操作</th>
+      </tr>
+      </thead>
+      <tbody id="tbody">
+      <tr>
+        <td colspan="6" class="small">暂无数据</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div id="msg" class="msg" style="display:none;"></div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  const MAX_PAGE_SIZE = 10;
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  logoutBtn.addEventListener("click", () => {
+    SystemApi.clearToken();
+    window.location.href = "login.html";
+  });
+
+  const tbody = document.getElementById("tbody");
+  const msgEl = document.getElementById("msg");
+  const pageInfo = document.getElementById("pageInfo");
+
+  const searchNameEl = document.getElementById("searchName");
+  const searchBtn = document.getElementById("searchBtn");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+
+  let current = 1;
+  let lastName = "";
+  let hasNext = true;
+
+  function showMsg(text, type) {
+    msgEl.style.display = "block";
+    msgEl.classList.remove("error", "ok");
+    msgEl.classList.add(type === "ok" ? "ok" : "error");
+    msgEl.textContent = text;
+  }
+
+  function toTimeInput(v) {
+    if (!v) return "";
+    if (v.includes("T")) v = v.split("T")[1];
+    return v.length >= 5 ? v.slice(0, 5) : v;
+  }
+
+  function toDateInput(v) {
+    if (!v) return "";
+    return String(v).slice(0, 10);
+  }
+
+  function renderTable(resourceList) {
+    tbody.innerHTML = "";
+    if (!resourceList || resourceList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="small">暂无数据</td></tr>';
+      return;
+    }
+
+    const rows = [];
+    resourceList.forEach((r) => {
+      const stocks = (r.stockList || []);
+      if (!stocks.length) {
+        rows.push({ resource: r, stock: null });
+        return;
+      }
+      stocks.forEach((s) => rows.push({ resource: r, stock: s }));
+    });
+
+    rows.forEach(({ resource, stock }) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${resource.name ?? "-"}</td>
+        <td>${stock?.stockDate ? toDateInput(stock.stockDate) : "-"}</td>
+        <td>${stock?.slotStart ? toTimeInput(stock.slotStart) : ""} - ${stock?.slotEnd ? toTimeInput(stock.slotEnd) : ""}</td>
+        <td>${stock?.totalStock ?? "-"}</td>
+        <td>${stock?.remainStock ?? "-"}</td>
+        <td>
+          <button class="btn primary" type="button" data-action="book" data-stock-id="${stock ? stock.id : ""}" ${stock && stock.remainStock === 0 ? "disabled" : ""}>
+            预约
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadList() {
+    try {
+      showMsg("加载中…", "ok");
+      const list = await SystemApi.api("/user/resource/page", {
+        method: "GET",
+        query: { name: lastName || undefined, current },
+      });
+      renderTable(list || []);
+      hasNext = Array.isArray(list) && list.length === MAX_PAGE_SIZE;
+      pageInfo.textContent = `当前页：${current}（${hasNext ? "可能有下一页" : "已到最后一页"}）`;
+      prevBtn.disabled = current <= 1;
+      nextBtn.disabled = !hasNext;
+      msgEl.style.display = "none";
+    } catch (e) {
+      showMsg(e.message || "加载失败", "error");
+    }
+  }
+
+  searchBtn.addEventListener("click", () => {
+    lastName = (searchNameEl.value || "").trim();
+    current = 1;
+    loadList();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (current <= 1) return;
+    current--;
+    loadList();
+  });
+
+  nextBtn.addEventListener("click", () => {
+    if (!hasNext) return;
+    current++;
+    loadList();
+  });
+
+  tbody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action !== "book") return;
+    const stockId = btn.dataset.stockId;
+    if (!stockId) return;
+    const ok = confirm("确认预约？");
+    if (!ok) return;
+    try {
+      btn.disabled = true;
+      btn.textContent = "提交中…";
+      const orderNum = await SystemApi.api("/booking", {
+        method: "POST",
+        query: { stock_id: stockId },
+      });
+      showMsg(`预约成功！订单号：${orderNum}`, "ok");
+      btn.textContent = "预约";
+      btn.disabled = false;
+      loadList();
+    } catch (err) {
+      showMsg(err.message || "预约失败", "error");
+      btn.textContent = "预约";
+      btn.disabled = false;
+    }
+  });
+
+  loadList();
+</script>
+</body>
+</html>
+

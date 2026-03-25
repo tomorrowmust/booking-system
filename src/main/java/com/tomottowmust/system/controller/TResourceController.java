@@ -28,7 +28,7 @@ public class TResourceController {
     @Operation(description = "分页查询资源 支持名字查询")
     @GetMapping("/page")
     public Result queryResourcePage(
-            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "name", required = false,defaultValue = "all") String name,
             @RequestParam(value = "current", defaultValue = "1") Integer current){
         return resourceService.queryResourcePage(name,current);
     }

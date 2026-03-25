@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>预约系统前端入口</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <div class="title">高并发预约系统</div>
+        <div class="sub">前端静态页面（无需构建）</div>
+      </div>
+      <div class="nav">
+        <a class="btn primary" href="login.html">登录</a>
+        <a class="btn" href="user-resource.html">用户端</a>
+        <a class="btn" href="admin-resource.html">管理员端</a>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>快速开始</h2>
+        <div class="small">说明：本系统由后端 Spring Boot 直接托管静态页面。登录后会在浏览器本地保存 token，并在请求头中携带 `authorization`。</div>
+        <div style="height:12px"></div>
+        <div class="msg ok">
+          建议：先打开 <b>登录</b> 获取 token，再访问用户端/管理员端页面。
+        </div>
+        <div style="height:12px"></div>
+        <div class="hint">
+          如果后端部署在不同域名，可能需要后端配置 CORS；但在同域（由同一个后端托管）通常无需额外配置。
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>接口概览</h2>
+        <div class="pill">验证码：`POST /auth/code`</div>
+        <div style="height:8px"></div>
+        <div class="pill">登录：`POST /auth/login`</div>
+        <div style="height:8px"></div>
+        <div class="pill">用户资源：`GET /user/resource/page`</div>
+        <div style="height:8px"></div>
+        <div class="pill">预约：`POST /booking?stock_id=...`</div>
+        <div style="height:8px"></div>
+        <div class="pill">管理员资源：`/admin/resource`（增删改查）</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+

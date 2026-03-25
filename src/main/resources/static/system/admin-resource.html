@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>管理员资源管理</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="title">管理员端 - 资源管理</div>
+      <div class="sub">增删改查（按资源分页，编辑时加载类型）</div>
+    </div>
+    <div class="nav">
+      <a class="btn" href="user-resource.html">用户端</a>
+      <a class="btn ghost" href="index.html">首页</a>
+      <button id="logoutBtn" class="btn danger" type="button">退出登录</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>资源列表</h2>
+      <div class="row">
+        <div class="field" style="flex: 1 1 260px;">
+          <div class="label">按资源名称搜索（like）</div>
+          <input id="searchName" type="text" placeholder="输入名称关键词"/>
+        </div>
+        <div>
+          <button id="searchBtn" class="btn primary" type="button">查询</button>
+        </div>
+      </div>
+      <div style="height: 12px;"></div>
+
+      <div class="row" style="justify-content: space-between;">
+        <div class="small" id="pageInfo">当前页：1</div>
+        <div class="row">
+          <button id="prevBtn" class="btn" type="button">上一页</button>
+          <button id="nextBtn" class="btn" type="button">下一页</button>
+        </div>
+      </div>
+
+      <div style="height: 12px;"></div>
+      <table>
+        <thead>
+        <tr>
+          <th>资源ID</th>
+          <th>资源名称</th>
+          <th>日期</th>
+          <th>时间段</th>
+          <th>总库存</th>
+          <th>剩余库存</th>
+          <th style="width: 160px;">操作</th>
+        </tr>
+        </thead>
+        <tbody id="tbody">
+        <tr>
+          <td colspan="7" class="small">暂无数据</td>
+        </tr>
+        </tbody>
+      </table>
+      <div id="listMsg" class="msg" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>新增 / 编辑资源库存</h2>
+      <div class="hint" style="margin-bottom: 10px;">
+        说明：后端保存需要 `ResourceDTO`，这里的“编辑”是对某个库存时段进行编辑（同时更新资源与库存）。
+      </div>
+      <input id="resourceId" type="hidden"/>
+      <input id="stockId" type="hidden"/>
+
+      <div class="row">
+        <div class="field" style="flex: 1 1 220px;">
+          <div class="label">资源名称</div>
+          <input id="name" type="text" placeholder="资源名称"/>
+        </div>
+        <div class="field" style="width: 140px;">
+          <div class="label">类型(type)</div>
+          <input id="type" type="number" value="1" placeholder="例如 1"/>
+        </div>
+      </div>
+
+      <div style="height: 10px;"></div>
+
+      <div class="row">
+        <div class="field">
+          <div class="label">库存日期</div>
+          <input id="stockDate" type="date"/>
+        </div>
+        <div class="field">
+          <div class="label">开始时间</div>
+          <input id="slotStart" type="time"/>
+        </div>
+        <div class="field">
+          <div class="label">结束时间</div>
+          <input id="slotEnd" type="time"/>
+        </div>
+      </div>
+
+      <div style="height: 10px;"></div>
+
+      <div class="row">
+        <div class="field">
+          <div class="label">总库存</div>
+          <input id="totalStock" type="number" min="0"/>
+        </div>
+        <div class="field">
+          <div class="label">剩余库存</div>
+          <input id="remainStock" type="number" min="0"/>
+        </div>
+      </div>
+
+      <div style="height: 14px;"></div>
+      <div class="row" style="justify-content: flex-start;">
+        <button id="saveBtn" class="btn primary" type="button">保存</button>
+        <button id="resetBtn" class="btn" type="button">清空表单</button>
+      </div>
+      <div style="height: 12px;"></div>
+      <div id="formMsg" class="msg" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  const MAX_PAGE_SIZE = 10;
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  logoutBtn.addEventListener("click", () => {
+    SystemApi.clearToken();
+    window.location.href = "login.html";
+  });
+
+  const tbody = document.getElementById("tbody");
+  const listMsg = document.getElementById("listMsg");
+  const pageInfo = document.getElementById("pageInfo");
+
+  const searchNameEl = document.getElementById("searchName");
+  const searchBtn = document.getElementById("searchBtn");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+
+  let current = 1;
+  let lastName = "";
+  let hasNext = true;
+
+  const resourceIdEl = document.getElementById("resourceId");
+  const stockIdEl = document.getElementById("stockId");
+  const nameEl = document.getElementById("name");
+  const typeEl = document.getElementById("type");
+  const stockDateEl = document.getElementById("stockDate");
+  const slotStartEl = document.getElementById("slotStart");
+  const slotEndEl = document.getElementById("slotEnd");
+  const totalStockEl = document.getElementById("totalStock");
+  const remainStockEl = document.getElementById("remainStock");
+
+  const saveBtn = document.getElementById("saveBtn");
+  const resetBtn = document.getElementById("resetBtn");
+  const formMsg = document.getElementById("formMsg");
+
+  function showListMsg(text, type) {
+    listMsg.style.display = "block";
+    listMsg.classList.remove("error", "ok");
+    listMsg.classList.add(type === "ok" ? "ok" : "error");
+    listMsg.textContent = text;
+  }
+
+  function showFormMsg(text, type) {
+    formMsg.style.display = "block";
+    formMsg.classList.remove("error", "ok");
+    formMsg.classList.add(type === "ok" ? "ok" : "error");
+    formMsg.textContent = text;
+  }
+
+  function clearForm() {
+    resourceIdEl.value = "";
+    stockIdEl.value = "";
+    nameEl.value = "";
+    typeEl.value = "1";
+    stockDateEl.value = "";
+    slotStartEl.value = "";
+    slotEndEl.value = "";
+    totalStockEl.value = "";
+    remainStockEl.value = "";
+    formMsg.style.display = "none";
+  }
+
+  function toTimeInput(v) {
+    if (!v) return "";
+    // expected: HH:mm:ss or HH:mm
+    if (v.includes("T")) v = v.split("T")[1];
+    return v.length >= 5 ? v.slice(0, 5) : v;
+  }
+
+  function toDateInput(v) {
+    if (!v) return "";
+    // expected: YYYY-MM-DD
+    return String(v).slice(0, 10);
+  }
+
+  async function fetchResourceType(resourceId) {
+    // 管理列表没有 type 字段，编辑时补齐
+    const data = await SystemApi.api("/user/resource/" + resourceId, {
+      method: "GET",
+    });
+    return data && typeof data.type !== "undefined" ? data.type : "";
+  }
+
+  function renderTable(resourceList) {
+    tbody.innerHTML = "";
+    if (!resourceList || resourceList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="small">暂无数据</td></tr>';
+      return;
+    }
+
+    const rows = [];
+    resourceList.forEach((r) => {
+      const stocks = (r.stockList || []);
+      if (!stocks.length) {
+        rows.push({ resource: r, stock: null });
+        return;
+      }
+      stocks.forEach((s) => rows.push({ resource: r, stock: s }));
+    });
+
+    rows.forEach(({ resource, stock }) => {
+      const tr = document.createElement("tr");
+      const timeText = stock ? `${stock.slotStart || ""} - ${stock.slotEnd || ""}` : "-";
+      tr.innerHTML = `
+        <td>${resource.id ?? "-"}</td>
+        <td>${resource.name ?? "-"}</td>
+        <td>${stock?.stockDate ? toDateInput(stock.stockDate) : "-"}</td>
+        <td>${timeText}</td>
+        <td>${stock?.totalStock ?? "-"}</td>
+        <td>${stock?.remainStock ?? "-"}</td>
+        <td>
+          <button class="btn" type="button" data-action="edit" data-resource-id="${resource.id}" data-stock-id="${stock ? stock.id : ""}">编辑</button>
+          <span style="display:inline-block;width:8px;"></span>
+          <button class="btn danger" type="button" data-action="delete" data-resource-id="${resource.id}">删除</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadList() {
+    try {
+      showListMsg("加载中…", "ok");
+      const list = await SystemApi.api("/admin/resource", {
+        method: "GET",
+        query: {
+          name: lastName || undefined,
+          current,
+        },
+      });
+      // 后端分页返回的是资源列表（ResourceVO），没有 total
+      renderTable(list || []);
+      hasNext = Array.isArray(list) && list.length === MAX_PAGE_SIZE;
+      pageInfo.textContent = `当前页：${current}（${hasNext ? "可能有下一页" : "已到最后一页"}）`;
+      prevBtn.disabled = current <= 1;
+      nextBtn.disabled = !hasNext;
+      listMsg.style.display = "none";
+    } catch (e) {
+      showListMsg(e.message || "加载失败", "error");
+    }
+  }
+
+  searchBtn.addEventListener("click", () => {
+    lastName = (searchNameEl.value || "").trim();
+    current = 1;
+    loadList();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (current <= 1) return;
+    current--;
+    loadList();
+  });
+
+  nextBtn.addEventListener("click", () => {
+    if (!hasNext) return;
+    current++;
+    loadList();
+  });
+
+  tbody.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === "delete") {
+      const resourceId = btn.dataset.resourceId;
+      const ok = confirm(`确认删除资源 ${resourceId}？（后端为逻辑删除）`);
+      if (!ok) return;
+      try {
+        await SystemApi.apiRequest("/admin/resource/" + resourceId, { method: "DELETE" });
+        showFormMsg("删除成功，已刷新列表。", "ok");
+        loadList();
+      } catch (err) {
+        showFormMsg(err.message || "删除失败", "error");
+      }
+      return;
+    }
+
+    if (action === "edit") {
+      const resourceId = btn.dataset.resourceId;
+      const stockId = btn.dataset.stockId;
+      if (!resourceId) return;
+
+      // 从当前列表表格反向拿到 stock 数据
+      // 由于列表展开了 stockList，这里直接从 DOM 行中读取同一行的显示值容易出错；
+      // 所以我们再次请求 resource/page 并按 id 定位（范围小、实现更稳）。
+      const resourceList = await SystemApi.api("/admin/resource", {
+        method: "GET",
+        query: { name: lastName || undefined, current },
+      });
+
+      let resource = null;
+      let stock = null;
+      (resourceList || []).some((r) => {
+        if (String(r.id) !== String(resourceId)) return false;
+        resource = r;
+        stock = (r.stockList || []).find((s) => String(s.id) === String(stockId)) || null;
+        return true;
+      });
+
+      resourceIdEl.value = resourceId;
+      stockIdEl.value = stock ? String(stock.id) : "";
+      nameEl.value = resource?.name ?? "";
+      typeEl.value = "";
+      stockDateEl.value = stock?.stockDate ? toDateInput(stock.stockDate) : "";
+      slotStartEl.value = stock?.slotStart ? toTimeInput(stock.slotStart) : "";
+      slotEndEl.value = stock?.slotEnd ? toTimeInput(stock.slotEnd) : "";
+      totalStockEl.value = stock?.totalStock ?? "";
+      remainStockEl.value = stock?.remainStock ?? "";
+
+      formMsg.style.display = "none";
+      try {
+        const t = await fetchResourceType(resourceId);
+        typeEl.value = t === "" ? "" : t;
+        showFormMsg("已加载该库存时段，可修改后保存。", "ok");
+      } catch (err) {
+        // type 失败不影响保存，但可能导致类型被置空；提示一下
+        showFormMsg((err.message || "加载 type 失败") + "（保存时请确认 type 值）", "error");
+      }
+    }
+  });
+
+  resetBtn.addEventListener("click", () => {
+    clearForm();
+  });
+
+  saveBtn.addEventListener("click", async () => {
+    const payload = {
+      id: resourceIdEl.value ? Number(resourceIdEl.value) : undefined,
+      name: (nameEl.value || "").trim(),
+      type: typeEl.value === "" ? undefined : Number(typeEl.value),
+      stockId: stockIdEl.value ? Number(stockIdEl.value) : undefined,
+      stockDate: stockDateEl.value || undefined,
+      slotStart: slotStartEl.value || undefined,
+      slotEnd: slotEndEl.value || undefined,
+      totalStock: totalStockEl.value === "" ? undefined : Number(totalStockEl.value),
+      remainStock: remainStockEl.value === "" ? undefined : Number(remainStockEl.value),
+    };
+
+    if (!payload.name) return showFormMsg("请填写资源名称。", "error");
+    if (payload.stockDate === undefined || payload.slotStart === undefined || payload.slotEnd === undefined) {
+      return showFormMsg("请填写库存日期与时间段。", "error");
+    }
+    if (payload.totalStock === undefined || payload.remainStock === undefined) {
+      return showFormMsg("请填写总库存与剩余库存。", "error");
+    }
+
+    try {
+      saveBtn.disabled = true;
+      saveBtn.textContent = "保存中…";
+      await SystemApi.apiRequest("/admin/resource", {
+        method: "POST",
+        body: payload,
+      });
+      showFormMsg("保存成功。", "ok");
+      clearForm();
+      loadList();
+    } catch (e) {
+      showFormMsg(e.message || "保存失败", "error");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "保存";
+    }
+  });
+
+  // 初始加载
+  clearForm();
+  loadList();
+</script>
+</body>
+</html>
+

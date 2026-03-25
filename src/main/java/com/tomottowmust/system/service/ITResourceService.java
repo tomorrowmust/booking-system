@@ -19,7 +19,7 @@ public interface ITResourceService extends IService<TResource> {
 
     Result queryResourceById(Long id);
 
-    Result saveResource(ResourceDTO resourceDTO);
+    Result saveOrUpdateResource(ResourceDTO resourceDTO);
 
     Result deleteResource(Long id);
 }

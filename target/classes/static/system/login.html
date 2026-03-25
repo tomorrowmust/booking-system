@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>登录 - 预约系统</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <div class="title">预约系统 - 登录</div>
+      <div class="sub">手机号验证码登录（后端返回 token）</div>
+    </div>
+    <div class="nav">
+      <a class="btn ghost" href="index.html">返回首页</a>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>发送验证码</h2>
+      <div class="row" style="align-items: center;">
+        <div class="field" style="min-width: 260px;">
+          <div class="label">手机号</div>
+          <input id="phone" type="tel" placeholder="请输入手机号" />
+          <div class="small">仅用于发送验证码</div>
+        </div>
+        <div>
+          <button id="sendCodeBtn" class="btn primary" type="button">发送验证码</button>
+          <div id="countdown" class="small" style="margin-top:6px;"></div>
+        </div>
+      </div>
+      <div style="height: 14px;"></div>
+
+      <h2>登录</h2>
+      <div class="row">
+        <div class="field">
+          <div class="label">验证码</div>
+          <input id="code" type="text" inputmode="numeric" placeholder="6位验证码" />
+        </div>
+        <div class="field">
+          <div class="label">&nbsp;</div>
+          <button id="loginBtn" class="btn" type="button">登录并保存 token</button>
+        </div>
+      </div>
+
+      <div id="msg" class="msg" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h2>登录后会做什么</h2>
+      <div class="hint">
+        <div style="margin-bottom: 10px;">
+          - 前端会把 token 保存在 <b>localStorage</b>
+        </div>
+        <div style="margin-bottom: 10px;">
+          - 后续请求会在 header 中携带：<b>authorization: token</b>
+        </div>
+        <div>
+          - 因为后端拦截器要求登录态，所以未登录会收到 401 并跳回本页
+        </div>
+      </div>
+      <div style="height: 14px;"></div>
+      <div class="msg ok">
+        你可以先登录再打开：<a href="user-resource.html" style="color: var(--primary); font-weight: 700;">用户端</a>
+        或打开：<a href="admin-resource.html" style="color: var(--primary); font-weight: 700;">管理员端</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+  const phoneEl = document.getElementById("phone");
+  const codeEl = document.getElementById("code");
+  const sendCodeBtn = document.getElementById("sendCodeBtn");
+  const loginBtn = document.getElementById("loginBtn");
+  const countdownEl = document.getElementById("countdown");
+  const msgEl = document.getElementById("msg");
+
+  function showMsg(text, type) {
+    msgEl.style.display = "block";
+    msgEl.classList.remove("error", "ok");
+    msgEl.classList.add(type === "ok" ? "ok" : "error");
+    msgEl.innerHTML = text;
+  }
+
+  let timer = null;
+  let secondsLeft = 0;
+  function startCountdown(minSeconds) {
+    secondsLeft = minSeconds;
+    if (timer) clearInterval(timer);
+    countdownEl.textContent = `剩余 ${secondsLeft}s`;
+    timer = setInterval(() => {
+      secondsLeft--;
+      countdownEl.textContent = secondsLeft > 0 ? `剩余 ${secondsLeft}s` : "";
+      if (secondsLeft <= 0) {
+        clearInterval(timer);
+        timer = null;
+        sendCodeBtn.disabled = false;
+        sendCodeBtn.textContent = "发送验证码";
+      }
+    }, 1000);
+  }
+
+  sendCodeBtn.addEventListener("click", async () => {
+    const phone = (phoneEl.value || "").trim();
+    if (!phone) return showMsg("请输入手机号。", "error");
+    try {
+      showMsg("正在发送验证码…", "ok");
+      sendCodeBtn.disabled = true;
+      sendCodeBtn.textContent = "发送中…";
+      await SystemApi.apiRequest("/auth/code", {
+        method: "POST",
+        query: { phone },
+        auth: false,
+      });
+      showMsg("验证码已发送，请查看后输入。", "ok");
+      startCountdown(60);
+    } catch (e) {
+      sendCodeBtn.disabled = false;
+      sendCodeBtn.textContent = "发送验证码";
+      showMsg(e.message || "发送失败", "error");
+    }
+  });
+
+  loginBtn.addEventListener("click", async () => {
+    const phone = (phoneEl.value || "").trim();
+    const code = (codeEl.value || "").trim();
+    if (!phone) return showMsg("请输入手机号。", "error");
+    if (!code) return showMsg("请输入验证码。", "error");
+    try {
+      showMsg("登录中…", "ok");
+      const token = await SystemApi.api("/auth/login", {
+        method: "POST",
+        auth: false,
+        body: { phone, code },
+      });
+      SystemApi.setToken(token);
+      showMsg("登录成功，正在跳转…", "ok");
+      setTimeout(() => {
+        window.location.href = "user-resource.html";
+      }, 700);
+    } catch (e) {
+      showMsg(e.message || "登录失败", "error");
+    }
+  });
+</script>
+</body>
+</html>
+
