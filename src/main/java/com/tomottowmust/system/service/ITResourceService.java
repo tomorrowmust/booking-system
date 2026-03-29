@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.tomottowmust.system.domain.dto.ResourceDTO;
 import com.tomottowmust.system.domain.dto.Result;
 import com.tomottowmust.system.domain.po.TResource;
+import com.tomottowmust.system.domain.po.TResourceStock;
+import com.tomottowmust.system.domain.vo.ResourceVO;
 
 /**
  * <p>
@@ -15,13 +17,59 @@ import com.tomottowmust.system.domain.po.TResource;
  */
 public interface ITResourceService extends IService<TResource> {
 
+    /**
+     * 管理员分页查询资源
+     */
     Result queryResourceAdminPage(String name, Integer current);
 
+    /**
+     * 用户端分页查询资源（带缓存）
+     */
+    Result queryResourceUserPage(Integer type, Integer current);
+
+    /**
+     * 查询资源库存明细
+     */
     Result queryResourceStockById(Long id);
 
+    /**
+     * 保存或更新资源
+     */
     Result saveOrUpdateResource(ResourceDTO resourceDTO);
 
+    /**
+     * 删除资源（逻辑删除）
+     */
     Result deleteResource(Long id);
 
-    Result queryResourceUserPage(Integer type, Integer current);
+    /**
+     * 更新单条库存到缓存
+     */
+    void updateStock(Long resourceId, TResourceStock stock);
+
+    /**
+     * 删除单条库存缓存
+     */
+    void deleteStock(Long resourceId, Long stockId);
+
+    /**
+     * 获取单条库存缓存
+     */
+    TResourceStock getStock(Long resourceId, Long stockId);
+
+    /**
+     * 更新分页缓存中的单条资源
+     */
+    void updateResourceInPageCache(Integer type, Integer current, ResourceVO vo);
+
+    /**
+     * 从分页缓存中删除单条资源
+     */
+    void removeResourceFromPageCache(Integer type, Integer current, Long resourceId);
+
+    /**
+     * 清空某类型的所有分页缓存
+     */
+    void clearTypeCache(Integer type);
+
 }

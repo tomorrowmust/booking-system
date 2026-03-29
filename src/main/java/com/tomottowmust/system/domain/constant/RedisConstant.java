@@ -20,12 +20,19 @@ public class RedisConstant {
     public static final String LOCK_ORDER_KEY = "lock:order:";
     public static final String ORDER_STOCK_KEY = "order:stock:";
     public static final String CACHE_RESOURCE_TYPE_KEY = "cache:resource:type:";
-    public static final String CACHE_PAGE_KEY = "page:";
     public static final String BOOKING_ORDER_KEY = "booking:order:";
 
-    public static final String SECKILL_STOCK_KEY = "seckill:stock:";
-    public static final String BLOG_LIKED_KEY = "blog:liked:";
-    public static final String FEED_KEY = "feed:";
-    public static final String SHOP_GEO_KEY = "shop:geo:";
-    public static final String USER_SIGN_KEY = "sign:";
+    // 缓存 key 前缀
+    public static final String CACHE_PAGE_KEY = "page:";
+    public static final String CACHE_RESOURCE_DETAIL_KEY = "resource:detail:";
+    public static final String EMPTY_FLAG = "EMPTY";
+
+    // 分页数据在 Hash 中的 field 前缀
+    public static final String PAGE_ITEM_PREFIX = "item:";
+    public static final String PAGE_META = "meta";
+
+
+
+
+
 }

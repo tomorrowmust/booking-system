@@ -5,122 +5,431 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>管理员资源管理</title>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* 新增/覆盖样式 */
+    .resource-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .resource-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 左侧列表优化 */
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .list-stats {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .search-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .search-box input {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    /* 资源卡片列表 */
+    .resource-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .resource-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .resource-list::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.03);
+      border-radius: 3px;
+    }
+
+    .resource-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 3px;
+    }
+
+    .resource-card {
+      background: var(--card2);
+      border: 1px solid var(--line);
+      border-radius: var(--radius2);
+      padding: 14px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .resource-card:hover {
+      border-color: rgba(94,234,212,0.25);
+      background: rgba(94,234,212,0.04);
+      transform: translateX(4px);
+    }
+
+    .resource-card.active {
+      border-color: var(--primary);
+      background: rgba(94,234,212,0.08);
+    }
+
+    .resource-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+
+    .resource-id {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      background: rgba(255,255,255,0.06);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .resource-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .stock-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .stock-tag {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--line);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stock-tag.has-stock {
+      border-color: rgba(94,234,212,0.3);
+      color: var(--primary);
+      background: rgba(94,234,212,0.08);
+    }
+
+    .stock-tag.low-stock {
+      border-color: rgba(251,191,36,0.3);
+      color: var(--warning);
+      background: rgba(251,191,36,0.08);
+    }
+
+    .stock-time {
+      font-family: monospace;
+      opacity: 0.8;
+    }
+
+    .resource-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+      border-radius: 8px;
+    }
+
+    /* 分页 */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+    }
+
+    .page-info {
+      font-size: 13px;
+      color: var(--muted);
+      min-width: 120px;
+      text-align: center;
+    }
+
+    /* 右侧表单优化 */
+    .form-card {
+      position: sticky;
+      top: 20px;
+    }
+
+    .form-section {
+      margin-bottom: 20px;
+    }
+
+    .form-section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .form-row.three-col {
+      grid-template-columns: 1.2fr 0.9fr 0.9fr;
+    }
+
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-field label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .form-field input,
+    .form-field select {
+      padding: 10px 12px;
+      border-radius: 10px;
+    }
+
+    .form-field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(94,234,212,0.1);
+    }
+
+    .stock-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .stock-bar {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .stock-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 2px;
+      transition: width 0.3s ease;
+    }
+
+    .stock-bar-fill.low {
+      background: var(--warning);
+    }
+
+    .stock-bar-fill.critical {
+      background: var(--danger);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+    }
+
+    .form-actions .btn {
+      flex: 1;
+      justify-content: center;
+      padding: 12px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .form-row,
+      .form-row.three-col {
+        grid-template-columns: 1fr;
+      }
+
+      .resource-actions {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 <body>
 <div class="wrap">
+  <!-- 顶部导航 -->
   <div class="topbar">
     <div class="brand">
-      <div class="title">管理员端 - 资源管理</div>
-      <div class="sub">增删改查（按资源分页，编辑时加载类型）</div>
+      <div class="title">资源管理系统</div>
+      <div class="sub">管理员控制台 · 库存时段管理</div>
     </div>
     <div class="nav">
-      <a class="btn" href="user-resource.html">用户端</a>
-      <a class="btn" href="stock-change-log.html">库存日志</a>
+      <a class="btn ghost" href="user-resource.html">用户端</a>
+      <a class="btn ghost" href="stock-change-log.html">库存日志</a>
       <a class="btn ghost" href="index.html">首页</a>
       <button id="logoutBtn" class="btn danger" type="button">退出登录</button>
     </div>
   </div>
 
-  <div class="grid">
+  <!-- 主内容区 -->
+  <div class="resource-grid">
+    <!-- 左侧：资源列表 -->
     <div class="card">
-      <h2>资源列表</h2>
-      <div class="row">
-        <div class="field" style="flex: 1 1 260px;">
-          <div class="label">按资源名称搜索（like）</div>
-          <input id="searchName" type="text" placeholder="输入名称关键词"/>
-        </div>
-        <div>
-          <button id="searchBtn" class="btn primary" type="button">查询</button>
-        </div>
-      </div>
-      <div style="height: 12px;"></div>
-
-      <div class="row" style="justify-content: space-between;">
-        <div class="small" id="pageInfo">当前页：1</div>
-        <div class="row">
-          <button id="prevBtn" class="btn" type="button">上一页</button>
-          <button id="nextBtn" class="btn" type="button">下一页</button>
-        </div>
+      <div class="list-header">
+        <h2 style="margin:0; font-size:16px;">📋 资源列表</h2>
+        <span class="list-stats" id="listStats">加载中...</span>
       </div>
 
-      <div style="height: 12px;"></div>
-      <table>
-        <thead>
-        <tr>
-          <th>资源ID</th>
-          <th>资源名称</th>
-          <th>日期</th>
-          <th>时间段</th>
-          <th>总库存</th>
-          <th>剩余库存</th>
-          <th style="width: 160px;">操作</th>
-        </tr>
-        </thead>
-        <tbody id="tbody">
-        <tr>
-          <td colspan="7" class="small">暂无数据</td>
-        </tr>
-        </tbody>
-      </table>
-      <div id="listMsg" class="msg" style="display:none;"></div>
+      <!-- 搜索 -->
+      <div class="search-box">
+        <input id="searchName" type="text" placeholder="搜索资源名称..."/>
+        <button id="searchBtn" class="btn primary" type="button">搜索</button>
+      </div>
+
+      <!-- 资源卡片列表 -->
+      <div id="resourceList" class="resource-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📦</div>
+          <div>暂无资源数据</div>
+        </div>
+      </div>
+
+      <!-- 分页 -->
+      <div class="pagination">
+        <button id="prevBtn" class="btn btn-sm" type="button" disabled>← 上一页</button>
+        <span class="page-info" id="pageInfo">第 1 页</span>
+        <button id="nextBtn" class="btn btn-sm" type="button" disabled>下一页 →</button>
+      </div>
+
+      <div id="listMsg" class="msg" style="display:none; margin-top:12px;"></div>
     </div>
 
-    <div class="card">
-      <h2>新增 / 编辑资源库存</h2>
-      <div class="hint" style="margin-bottom: 10px;">
-        说明：后端保存需要 `ResourceDTO`，这里的“编辑”是对某个库存时段进行编辑（同时更新资源与库存）。
+    <!-- 右侧：编辑表单 -->
+    <div class="card form-card">
+      <h2 style="margin:0 0 16px 0; font-size:16px;">✏️ 编辑资源库存</h2>
+
+      <div class="hint" style="margin-bottom:20px; padding:10px 12px; background:rgba(94,234,212,0.06); border-radius:8px; border-left:3px solid var(--primary);">
+        选择一个资源时段进行编辑，或填写下方表单创建新时段。
       </div>
+
+      <!-- 隐藏字段 -->
       <input id="resourceId" type="hidden"/>
       <input id="stockId" type="hidden"/>
 
-      <div class="row">
-        <div class="field" style="flex: 1 1 220px;">
-          <div class="label">资源名称</div>
-          <input id="name" type="text" placeholder="资源名称"/>
-        </div>
-        <div class="field" style="width: 140px;">
-          <div class="label">类型(type)</div>
-          <input id="type" type="number" value="1" placeholder="例如 1"/>
-        </div>
-      </div>
-
-      <div style="height: 10px;"></div>
-
-      <div class="row">
-        <div class="field">
-          <div class="label">库存日期</div>
-          <input id="stockDate" type="date"/>
-        </div>
-        <div class="field">
-          <div class="label">开始时间</div>
-          <input id="slotStart" type="time"/>
-        </div>
-        <div class="field">
-          <div class="label">结束时间</div>
-          <input id="slotEnd" type="time"/>
+      <!-- 基本信息 -->
+      <div class="form-section">
+        <div class="form-section-title">基本信息</div>
+        <div class="form-row">
+          <div class="form-field" style="flex:2;">
+            <label>资源名称</label>
+            <input id="name" type="text" placeholder="例如：羽毛球场A区"/>
+          </div>
+          <div class="form-field" style="flex:1;">
+            <label>资源类型</label>
+            <input id="type" type="number" placeholder="1" min="1"/>
+          </div>
         </div>
       </div>
 
-      <div style="height: 10px;"></div>
-
-      <div class="row">
-        <div class="field">
-          <div class="label">总库存</div>
-          <input id="totalStock" type="number" min="0"/>
-        </div>
-        <div class="field">
-          <div class="label">剩余库存</div>
-          <input id="remainStock" type="number" min="0"/>
+      <!-- 时段信息 -->
+      <div class="form-section">
+        <div class="form-section-title">时段设置</div>
+        <div class="form-row three-col">
+          <div class="form-field">
+            <label>日期</label>
+            <input id="stockDate" type="date"/>
+          </div>
+          <div class="form-field">
+            <label>开始时间</label>
+            <input id="slotStart" type="time"/>
+          </div>
+          <div class="form-field">
+            <label>结束时间</label>
+            <input id="slotEnd" type="time"/>
+          </div>
         </div>
       </div>
 
-      <div style="height: 14px;"></div>
-      <div class="row" style="justify-content: flex-start;">
-        <button id="saveBtn" class="btn primary" type="button">保存</button>
-        <button id="resetBtn" class="btn" type="button">清空表单</button>
+      <!-- 库存设置 -->
+      <div class="form-section">
+        <div class="form-section-title">库存配置</div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>总库存</label>
+            <input id="totalStock" type="number" min="0" placeholder="0"/>
+          </div>
+          <div class="form-field">
+            <label>剩余库存</label>
+            <input id="remainStock" type="number" min="0" placeholder="0"/>
+          </div>
+        </div>
+        <div class="stock-indicator">
+          <span>库存状态</span>
+          <div class="stock-bar">
+            <div id="stockBarFill" class="stock-bar-fill" style="width:0%"></div>
+          </div>
+          <span id="stockPercent">0%</span>
+        </div>
       </div>
-      <div style="height: 12px;"></div>
-      <div id="formMsg" class="msg" style="display:none;"></div>
+
+      <!-- 操作按钮 -->
+      <div class="form-actions">
+        <button id="resetBtn" class="btn" type="button">清空</button>
+        <button id="saveBtn" class="btn primary" type="button">保存更改</button>
+      </div>
+
+      <div id="formMsg" class="msg" style="display:none; margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -128,26 +437,20 @@
 <script src="js/api.js"></script>
 <script>
   const MAX_PAGE_SIZE = 10;
+  const TOKEN_KEY = "auth_token";
 
-  const logoutBtn = document.getElementById("logoutBtn");
-  logoutBtn.addEventListener("click", () => {
-    SystemApi.clearToken();
-    window.location.href = "login.html";
-  });
-
-  const tbody = document.getElementById("tbody");
+  // DOM 元素
+  const resourceListEl = document.getElementById("resourceList");
   const listMsg = document.getElementById("listMsg");
   const pageInfo = document.getElementById("pageInfo");
+  const listStats = document.getElementById("listStats");
 
   const searchNameEl = document.getElementById("searchName");
   const searchBtn = document.getElementById("searchBtn");
   const prevBtn = document.getElementById("prevBtn");
   const nextBtn = document.getElementById("nextBtn");
 
-  let current = 1;
-  let lastName = "";
-  let hasNext = true;
-
+  // 表单元素
   const resourceIdEl = document.getElementById("resourceId");
   const stockIdEl = document.getElementById("stockId");
   const nameEl = document.getElementById("name");
@@ -157,22 +460,29 @@
   const slotEndEl = document.getElementById("slotEnd");
   const totalStockEl = document.getElementById("totalStock");
   const remainStockEl = document.getElementById("remainStock");
+  const stockBarFill = document.getElementById("stockBarFill");
+  const stockPercent = document.getElementById("stockPercent");
 
   const saveBtn = document.getElementById("saveBtn");
   const resetBtn = document.getElementById("resetBtn");
   const formMsg = document.getElementById("formMsg");
 
+  let current = 1;
+  let lastName = "";
+  let hasNext = false;
+  let currentResources = [];
+
+  // 工具函数
   function showListMsg(text, type) {
     listMsg.style.display = "block";
-    listMsg.classList.remove("error", "ok");
-    listMsg.classList.add(type === "ok" ? "ok" : "error");
+    listMsg.className = "msg " + (type === "ok" ? "ok" : "error");
     listMsg.textContent = text;
+    setTimeout(() => listMsg.style.display = "none", 3000);
   }
 
   function showFormMsg(text, type) {
     formMsg.style.display = "block";
-    formMsg.classList.remove("error", "ok");
-    formMsg.classList.add(type === "ok" ? "ok" : "error");
+    formMsg.className = "msg " + (type === "ok" ? "ok" : "error");
     formMsg.textContent = text;
   }
 
@@ -180,93 +490,131 @@
     resourceIdEl.value = "";
     stockIdEl.value = "";
     nameEl.value = "";
-    typeEl.value = "1";
+    typeEl.value = "";
     stockDateEl.value = "";
     slotStartEl.value = "";
     slotEndEl.value = "";
     totalStockEl.value = "";
     remainStockEl.value = "";
+    updateStockBar(0, 0);
+    document.querySelectorAll('.resource-card').forEach(c => c.classList.remove('active'));
     formMsg.style.display = "none";
+  }
+
+  function updateStockBar(remain, total) {
+    if (!total || total <= 0) {
+      stockBarFill.style.width = "0%";
+      stockPercent.textContent = "0%";
+      stockBarFill.className = "stock-bar-fill";
+      return;
+    }
+    const percent = Math.round((remain / total) * 100);
+    stockBarFill.style.width = percent + "%";
+    stockPercent.textContent = percent + "%";
+
+    stockBarFill.className = "stock-bar-fill";
+    if (percent <= 20) stockBarFill.classList.add("critical");
+    else if (percent <= 50) stockBarFill.classList.add("low");
   }
 
   function toTimeInput(v) {
     if (!v) return "";
-    // expected: HH:mm:ss or HH:mm
     if (v.includes("T")) v = v.split("T")[1];
     return v.length >= 5 ? v.slice(0, 5) : v;
   }
 
   function toDateInput(v) {
     if (!v) return "";
-    // expected: YYYY-MM-DD
     return String(v).slice(0, 10);
   }
 
-  function getTotalStock(s) {
-    if (!s) return 0;
-    const v = s.totalStock ?? s.total_stock ?? s.totalstock ?? null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
+  function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    const d = new Date(dateStr);
+    return `${d.getMonth()+1}月${d.getDate()}日`;
   }
 
-  function getRemainStock(s) {
-    if (!s) return 0;
-    const v = s.remainStock ?? s.remain_stock ?? s.remainstock ?? null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
-  }
+  // 渲染资源卡片列表
+  function renderResourceCards(resources) {
+    currentResources = resources || [];
+    resourceListEl.innerHTML = "";
 
-  async function fetchResourceType(resourceId) {
-    // 管理列表没有 type 字段，编辑时补齐
-    const data = await SystemApi.api("/user/resource/" + resourceId, {
-      method: "GET",
-    });
-    return data && typeof data.type !== "undefined" ? data.type : "";
-  }
-
-  function renderTable(resourceList) {
-    tbody.innerHTML = "";
-    if (!resourceList || resourceList.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="small">暂无数据</td></tr>';
+    if (!resources || resources.length === 0) {
+      resourceListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <div>没有找到匹配的资源</div>
+        </div>
+      `;
+      listStats.textContent = "0 个资源";
       return;
     }
 
-    const rows = [];
-    resourceList.forEach((r) => {
-      const stocks = (r.stockList || []);
-      if (!stocks.length) {
-        rows.push({ resource: r, stock: null });
-        return;
+    let totalStocks = 0;
+
+    resources.forEach(r => {
+      const stocks = r.stockList || [];
+      totalStocks += stocks.length;
+
+      const card = document.createElement("div");
+      card.className = "resource-card";
+      card.dataset.resourceId = r.id;
+
+      // 构建库存标签
+      let tagsHtml = "";
+      if (stocks.length === 0) {
+        tagsHtml = `<span class="stock-tag">暂无时段</span>`;
+      } else {
+        tagsHtml = stocks.slice(0, 3).map(s => {
+          const remain = s.remainStock ?? s.remain_stock ?? 0;
+          const total = s.totalStock ?? s.total_stock ?? 0;
+          const isLow = remain / total <= 0.3;
+          const isFull = remain === total;
+          return `
+            <span class="stock-tag ${isLow ? 'low-stock' : 'has-stock'}"
+                  data-stock-id="${s.id}"
+                  data-resource-id="${r.id}">
+              <span class="stock-time">${toTimeInput(s.slotStart)}-${toTimeInput(s.slotEnd)}</span>
+              <span>${remain}/${total}</span>
+            </span>
+          `;
+        }).join("");
+        if (stocks.length > 3) {
+          tagsHtml += `<span class="stock-tag">+${stocks.length - 3} 个时段</span>`;
+        }
       }
-      stocks.forEach((s) => rows.push({ resource: r, stock: s }));
+
+      card.innerHTML = `
+        <div class="resource-card-header">
+          <span class="resource-id">#${r.id}</span>
+        </div>
+        <div class="resource-name">${r.name || "未命名资源"}</div>
+        <div class="stock-tags">${tagsHtml}</div>
+        <div class="resource-actions">
+          <button class="btn btn-sm" onclick="editResource('${r.id}')">编辑资源</button>
+          <button class="btn danger btn-sm" onclick="deleteResource('${r.id}')">删除</button>
+        </div>
+      `;
+
+      // 点击库存标签编辑时段
+      card.querySelectorAll('.stock-tag[data-stock-id]').forEach(tag => {
+        tag.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const sid = tag.dataset.stockId;
+          const rid = tag.dataset.resourceId;
+          editStock(rid, sid);
+        });
+      });
+
+      resourceListEl.appendChild(card);
     });
 
-    rows.forEach(({ resource, stock }) => {
-      const tr = document.createElement("tr");
-      const timeText = stock ? `${stock.slotStart || ""} - ${stock.slotEnd || ""}` : "-";
-      const hasStock = !!stock && stock.id != null;
-      tr.innerHTML = `
-        <td>${resource.id ?? "-"}</td>
-        <td>${resource.name ?? "-"}</td>
-        <td>${stock?.stockDate ? toDateInput(stock.stockDate) : "-"}</td>
-        <td>${timeText}</td>
-        <td>${hasStock ? getTotalStock(stock) : "-"}</td>
-        <td>${hasStock ? getRemainStock(stock) : "-"}</td>
-        <td>
-          <button class="btn table-btn" type="button" data-action="edit" data-resource-id="${resource.id}" data-stock-id="${hasStock ? stock.id : ""}">
-            ${hasStock ? "编辑" : "新增/编辑时段"}
-          </button>
-          <span style="display:inline-block;width:8px;"></span>
-          <button class="btn danger table-btn" type="button" data-action="delete" data-resource-id="${resource.id}">删除</button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
+    listStats.textContent = `${resources.length} 个资源 · ${totalStocks} 个时段`;
   }
 
+  // 加载列表
   async function loadList() {
     try {
-      showListMsg("加载中…", "ok");
       const list = await SystemApi.api("/admin/resource", {
         method: "GET",
         query: {
@@ -274,106 +622,128 @@
           current,
         },
       });
-      // 后端分页返回的是资源列表（ResourceVO），没有 total
-      renderTable(list || []);
+
+      renderResourceCards(list);
       hasNext = Array.isArray(list) && list.length === MAX_PAGE_SIZE;
-      pageInfo.textContent = `当前页：${current}（${hasNext ? "可能有下一页" : "已到最后一页"}）`;
+
+      pageInfo.textContent = `第 ${current} 页${hasNext ? "" : " (末页)"}`;
       prevBtn.disabled = current <= 1;
       nextBtn.disabled = !hasNext;
-      listMsg.style.display = "none";
     } catch (e) {
       showListMsg(e.message || "加载失败", "error");
     }
   }
 
+  // 编辑资源（新建时段）
+  window.editResource = async function(resourceId) {
+    const resource = currentResources.find(r => String(r.id) === String(resourceId));
+    if (!resource) return;
+
+    clearForm();
+    document.querySelectorAll('.resource-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.resourceId === resourceId);
+    });
+
+    resourceIdEl.value = resourceId;
+    nameEl.value = resource.name || "";
+
+    try {
+      const detail = await SystemApi.api("/user/resource/" + resourceId, { method: "GET" });
+      typeEl.value = detail?.type || "";
+    } catch (e) {
+      typeEl.value = "";
+    }
+
+    // 默认填充今天日期
+    stockDateEl.value = new Date().toISOString().slice(0, 10);
+
+    showFormMsg("已加载资源信息，请填写时段信息后保存", "ok");
+  };
+
+  // 编辑具体时段
+  window.editStock = async function(resourceId, stockId) {
+    const resource = currentResources.find(r => String(r.id) === String(resourceId));
+    if (!resource) return;
+
+    const stock = resource.stockList?.find(s => String(s.id) === String(stockId));
+    if (!stock) return;
+
+    clearForm();
+    document.querySelectorAll('.resource-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.resourceId === resourceId);
+    });
+
+    resourceIdEl.value = resourceId;
+    stockIdEl.value = stockId;
+    nameEl.value = resource.name || "";
+    typeEl.value = resource.type || "";
+    stockDateEl.value = toDateInput(stock.stockDate);
+    slotStartEl.value = toTimeInput(stock.slotStart);
+    slotEndEl.value = toTimeInput(stock.slotEnd);
+
+    const total = stock.totalStock ?? stock.total_stock ?? 0;
+    const remain = stock.remainStock ?? stock.remain_stock ?? 0;
+    totalStockEl.value = total;
+    remainStockEl.value = remain;
+
+    updateStockBar(remain, total);
+    showFormMsg("已加载时段信息，修改后点击保存", "ok");
+  };
+
+  // 删除资源
+  window.deleteResource = async function(resourceId) {
+    const ok = confirm(`确定删除资源 #${resourceId} 吗？\n该操作将删除资源及其所有时段，且不可恢复。`);
+    if (!ok) return;
+
+    try {
+      await SystemApi.apiRequest("/admin/resource/" + resourceId, { method: "DELETE" });
+      showListMsg("删除成功", "ok");
+      loadList();
+      clearForm();
+    } catch (err) {
+      showListMsg(err.message || "删除失败", "error");
+    }
+  };
+
+  // 事件监听
   searchBtn.addEventListener("click", () => {
-    lastName = (searchNameEl.value || "").trim();
+    lastName = searchNameEl.value.trim();
     current = 1;
     loadList();
   });
 
+  searchNameEl.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") searchBtn.click();
+  });
+
   prevBtn.addEventListener("click", () => {
-    if (current <= 1) return;
-    current--;
-    loadList();
+    if (current > 1) {
+      current--;
+      loadList();
+    }
   });
 
   nextBtn.addEventListener("click", () => {
-    if (!hasNext) return;
-    current++;
-    loadList();
-  });
-
-  tbody.addEventListener("click", async (e) => {
-    const btn = e.target.closest("button");
-    if (!btn) return;
-    const action = btn.dataset.action;
-    if (action === "delete") {
-      const resourceId = btn.dataset.resourceId;
-      const ok = confirm(`确认删除资源 ${resourceId}？（后端为逻辑删除）`);
-      if (!ok) return;
-      try {
-        await SystemApi.apiRequest("/admin/resource/" + resourceId, { method: "DELETE" });
-        showFormMsg("删除成功，已刷新列表。", "ok");
-        loadList();
-      } catch (err) {
-        showFormMsg(err.message || "删除失败", "error");
-      }
-      return;
-    }
-
-    if (action === "edit") {
-      const resourceId = btn.dataset.resourceId;
-      const stockId = btn.dataset.stockId;
-      if (!resourceId) return;
-
-      // 从当前列表表格反向拿到 stock 数据
-      // 由于列表展开了 stockList，这里直接从 DOM 行中读取同一行的显示值容易出错；
-      // 所以我们再次请求 resource/page 并按 id 定位（范围小、实现更稳）。
-      const resourceList = await SystemApi.api("/admin/resource", {
-        method: "GET",
-        query: { name: lastName || undefined, current },
-      });
-
-      let resource = null;
-      let stock = null;
-      (resourceList || []).some((r) => {
-        if (String(r.id) !== String(resourceId)) return false;
-        resource = r;
-        stock = (r.stockList || []).find((s) => String(s.id) === String(stockId)) || null;
-        return true;
-      });
-
-      resourceIdEl.value = resourceId;
-      stockIdEl.value = stock ? String(stock.id) : "";
-      nameEl.value = resource?.name ?? "";
-      typeEl.value = "";
-      stockDateEl.value = stock?.stockDate ? toDateInput(stock.stockDate) : "";
-      slotStartEl.value = stock?.slotStart ? toTimeInput(stock.slotStart) : "";
-      slotEndEl.value = stock?.slotEnd ? toTimeInput(stock.slotEnd) : "";
-      totalStockEl.value = stock?.totalStock ?? "";
-      remainStockEl.value = stock?.remainStock ?? "";
-
-      formMsg.style.display = "none";
-      try {
-        const t = await fetchResourceType(resourceId);
-        typeEl.value = t === "" ? "" : t;
-        showFormMsg("已加载该库存时段，可修改后保存。", "ok");
-      } catch (err) {
-        // type 失败不影响保存，但可能导致类型被置空；提示一下
-        showFormMsg((err.message || "加载 type 失败") + "（保存时请确认 type 值）", "error");
-      }
+    if (hasNext) {
+      current++;
+      loadList();
     }
   });
 
-  resetBtn.addEventListener("click", () => {
-    clearForm();
+  resetBtn.addEventListener("click", clearForm);
+
+  // 库存输入实时更新进度条
+  [totalStockEl, remainStockEl].forEach(el => {
+    el.addEventListener("input", () => {
+      updateStockBar(parseInt(remainStockEl.value) || 0, parseInt(totalStockEl.value) || 0);
+    });
   });
 
+  // 保存
   saveBtn.addEventListener("click", async () => {
     const payload = {
       id: resourceIdEl.value ? Number(resourceIdEl.value) : undefined,
-      name: (nameEl.value || "").trim(),
+      name: nameEl.value.trim(),
       type: typeEl.value === "" ? undefined : Number(typeEl.value),
       stockId: stockIdEl.value ? Number(stockIdEl.value) : undefined,
       stockDate: stockDateEl.value || undefined,
@@ -383,36 +753,46 @@
       remainStock: remainStockEl.value === "" ? undefined : Number(remainStockEl.value),
     };
 
-    if (!payload.name) return showFormMsg("请填写资源名称。", "error");
-    if (payload.stockDate === undefined || payload.slotStart === undefined || payload.slotEnd === undefined) {
-      return showFormMsg("请填写库存日期与时间段。", "error");
-    }
+    // 验证
+    if (!payload.name) return showFormMsg("请填写资源名称", "error");
+    if (!payload.stockDate) return showFormMsg("请选择日期", "error");
+    if (!payload.slotStart || !payload.slotEnd) return showFormMsg("请填写开始和结束时间", "error");
     if (payload.totalStock === undefined || payload.remainStock === undefined) {
-      return showFormMsg("请填写总库存与剩余库存。", "error");
+      return showFormMsg("请填写库存数量", "error");
+    }
+    if (payload.remainStock > payload.totalStock) {
+      return showFormMsg("剩余库存不能大于总库存", "error");
     }
 
     try {
       saveBtn.disabled = true;
-      saveBtn.textContent = "保存中…";
+      saveBtn.textContent = "保存中...";
+
       await SystemApi.apiRequest("/admin/resource", {
         method: "POST",
         body: payload,
       });
-      showFormMsg("保存成功。", "ok");
+
+      showFormMsg(payload.stockId ? "时段更新成功" : "新建时段成功", "ok");
       clearForm();
       loadList();
     } catch (e) {
       showFormMsg(e.message || "保存失败", "error");
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = "保存";
+      saveBtn.textContent = "保存更改";
     }
   });
 
-  // 初始加载
+  // 退出登录
+  document.getElementById("logoutBtn").addEventListener("click", () => {
+    localStorage.removeItem(TOKEN_KEY);
+    window.location.href = "login.html";
+  });
+
+  // 初始化
   clearForm();
   loadList();
 </script>
 </body>
 </html>
-
