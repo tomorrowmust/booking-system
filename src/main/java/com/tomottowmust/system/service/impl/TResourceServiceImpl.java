@@ -16,7 +16,10 @@ import com.tomottowmust.system.mapper.TResourceMapper;
 import com.tomottowmust.system.service.ITResourceService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomottowmust.system.service.ITResourceStockService;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
+import org.redisson.api.RBloomFilter;
+import org.redisson.api.RedissonClient;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -44,17 +47,32 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
 
     @Resource
     private ITResourceStockService stockService;
+
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
+    @Resource(name = "resourceStockBloomFilter")
+    private RBloomFilter<String>resourceStockRBloomFilter;
+
     private static final String NULL_TYPE = "0";
+
+    @PostConstruct
+    public void initStockBloomFilter(){
+        if(!resourceStockRBloomFilter.isExists()){
+            List<TResource> resources  = query().select("id").list();
+            List<String>idList=new ArrayList<>();
+            for (TResource r : resources) {
+                idList.add(CACHE_RESOURCE_KEY+r.getId());
+            }
+            resourceStockRBloomFilter.add(idList);
+        }
+    }
 
     private String buildPageCacheKey(Integer type, Integer current) {
         String typeStr = (type == null) ? NULL_TYPE : type.toString();
         return CACHE_RESOURCE_TYPE_KEY + typeStr + ":" + CACHE_PAGE_KEY + current;
     }
 
-    // ==================== 管理员接口 ====================
 
     @Override
     public Result queryResourceAdminPage(String name, Integer current) {
@@ -90,35 +108,34 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         return vos;
     }
 
-    // ==================== 用户端分页查询（Hash 存储）====================
 
     @Override
     public Result queryResourceUserPage(Integer type, Integer current) {
         String hashKey = buildPageCacheKey(type, current);
 
-        // 1. 先检查是否有空值标记（防缓存穿透）
+        // 先检查是否有空值标记（防缓存穿透）
         Boolean hasEmpty = stringRedisTemplate.opsForHash().hasKey(hashKey, EMPTY_FLAG);
         if (hasEmpty) {
             return Result.fail("数据不存在！");
         }
 
-        // 2. 尝试从 Hash 中获取分页数据
+        // 尝试从 Hash 中获取分页数据
         List<ResourceVO> cachedList = getPageFromHash(hashKey);
         if (!cachedList.isEmpty()) {
             return Result.ok(cachedList);
         }
 
-        // 3. 缓存未命中，查数据库
+        // 缓存未命中，查数据库
         List<ResourceVO> vos = getResourceVOS(type, current);
 
-        // 4. 防缓存穿透：空数据标记
+        // 防缓存穿透：空数据标记
         if (CollUtil.isEmpty(vos)) {
             stringRedisTemplate.opsForHash().put(hashKey, EMPTY_FLAG, "1");
             stringRedisTemplate.expire(hashKey, Duration.ofMinutes(1));
             return Result.fail("数据不存在！");
         }
 
-        // 5. 存入 Hash（逐条存储，便于单独更新）
+        // 存入 Hash（逐条存储，便于单独更新）
         savePageToHash(hashKey, vos);
         stringRedisTemplate.expire(hashKey, Duration.ofMinutes(1));
 
@@ -227,22 +244,23 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         }
     }
 
-    // ==================== 库存明细缓存（Hash 存储）====================
 
     @Override
     public Result queryResourceStockById(Long id) {
         String key = CACHE_RESOURCE_KEY + id;
-
+        if(!resourceStockRBloomFilter.contains(key)){
+            return Result.fail("数据不存在！");
+        }
         // 检查是否有空值标记
         Boolean hasEmptyFlag = stringRedisTemplate.opsForHash().hasKey(key, EMPTY_FLAG);
-        if (Boolean.TRUE.equals(hasEmptyFlag)) {
+        if (hasEmptyFlag) {
             return Result.ok(Collections.emptyList());
         }
 
         // 获取该资源下的所有库存记录
         Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(key);
 
-        // 3. 缓存未命中，查数据库
+        // 缓存未命中，查数据库
         if (entries.isEmpty()) {
             List<TResourceStock> stocks = stockService.query()
                     .eq("resource_id", id)
@@ -267,7 +285,7 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
             return Result.ok(stocks);
         }
 
-        // 4. 缓存命中，反序列化
+        // 缓存命中，反序列化
         List<TResourceStock> stocks = entries.values().stream()
                 .map(obj -> JSONUtil.toBean(obj.toString(), TResourceStock.class))
                 .collect(Collectors.toList());
@@ -307,7 +325,6 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         return value != null ? JSONUtil.toBean(value.toString(), TResourceStock.class) : null;
     }
 
-    // ==================== 资源保存/更新 ====================
 
     @Override
     @Transactional
@@ -330,6 +347,10 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
 
         // 清空该资源类型的分页缓存（因为资源信息可能变化）
         clearTypeCache(resource.getType());
+        String resourceKey = CACHE_RESOURCE_KEY + resource.getId();
+        if(!resourceStockRBloomFilter.contains(resourceKey)){
+            resourceStockRBloomFilter.add(resourceKey);
+        }
 
         return Result.ok();
     }
@@ -352,7 +373,6 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         return Result.ok();
     }
 
-    // ==================== 私有工具方法 ====================
 
     private List<ResourceVO> getResourceVOS(Integer type, Integer current) {
         Page<TResource> page = query()
