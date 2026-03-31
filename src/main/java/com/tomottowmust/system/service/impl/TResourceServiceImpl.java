@@ -5,6 +5,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tomottowmust.system.domain.dto.ResourceDTO;
 import com.tomottowmust.system.domain.dto.Result;
@@ -13,6 +14,7 @@ import com.tomottowmust.system.domain.po.TResourceStock;
 import com.tomottowmust.system.domain.vo.ResourceStockVO;
 import com.tomottowmust.system.domain.vo.ResourceVO;
 import com.tomottowmust.system.mapper.TResourceMapper;
+import com.tomottowmust.system.mapper.TResourceStockMapper;
 import com.tomottowmust.system.service.ITResourceService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomottowmust.system.service.ITResourceStockService;
@@ -46,27 +48,81 @@ import static com.tomottowmust.system.domain.constant.SystemConstants.MAX_PAGE_S
 public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource> implements ITResourceService {
 
     @Resource
-    private ITResourceStockService stockService;
+    private TResourceStockMapper stockMapper;
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
 
     @Resource(name = "resourceStockBloomFilter")
-    private RBloomFilter<String>resourceStockRBloomFilter;
+    private RBloomFilter<String>resourceStockBloomFilter;
 
     private static final String NULL_TYPE = "0";
 
     @PostConstruct
     public void initStockBloomFilter(){
-        if(!resourceStockRBloomFilter.isExists()){
-            List<TResource> resources  = query().select("id").list();
-            List<String>idList=new ArrayList<>();
-            for (TResource r : resources) {
-                idList.add(CACHE_RESOURCE_KEY+r.getId());
+        if (resourceStockBloomFilter.isExists() && resourceStockBloomFilter.count() == 0) {  // 检查是否为空
+            List<TResource> resources = query()
+                    .select("id").list();
+
+            if (CollUtil.isNotEmpty(resources)) {
+                List<String> idList = resources.stream()
+                        .map(r -> CACHE_RESOURCE_KEY + r.getId())
+                        .collect(Collectors.toList());
+                resourceStockBloomFilter.add(idList);
             }
-            resourceStockRBloomFilter.add(idList);
         }
     }
+
+    @Override
+    public Result queryResourceStockById(Long id) {
+        String key = CACHE_RESOURCE_KEY + id;
+        if(!resourceStockBloomFilter.contains(key)){
+            return Result.fail("数据不存在！");
+        }
+        // 检查是否有空值标记
+        Boolean hasEmptyFlag = stringRedisTemplate.opsForHash().hasKey(key, EMPTY_FLAG);
+        if (hasEmptyFlag) {
+            return Result.ok(Collections.emptyList());
+        }
+
+        // 获取该资源下的所有库存记录
+        Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(key);
+
+        // 缓存未命中，查数据库
+        if (entries.isEmpty()) {
+            List<TResourceStock> stocks = stockMapper.selectList(
+                    new LambdaQueryWrapper<TResourceStock>()
+                            .eq(TResourceStock::getResourceId, id)
+            );
+
+            // 防止缓存穿透
+            if (CollUtil.isEmpty(stocks)) {
+                stringRedisTemplate.opsForHash().put(key, EMPTY_FLAG, "1");
+                stringRedisTemplate.expire(key, Duration.ofMinutes(5));
+                return Result.ok(Collections.emptyList());
+            }
+
+            // 批量存入 Hash：field=stockId, value=JSON
+            Map<String, String> stockMap = stocks.stream()
+                    .collect(Collectors.toMap(
+                            stock -> String.valueOf(stock.getId()),
+                            JSONUtil::toJsonStr
+                    ));
+
+            stringRedisTemplate.opsForHash().putAll(key, stockMap);
+            stringRedisTemplate.expire(key, Duration.ofMinutes(30));
+            return Result.ok(stocks);
+        }
+
+        // 缓存命中，反序列化
+        List<TResourceStock> stocks = entries.values().stream()
+                .map(obj -> JSONUtil.toBean(obj.toString(), TResourceStock.class))
+                .collect(Collectors.toList());
+
+        return Result.ok(stocks);
+    }
+
+
 
     private String buildPageCacheKey(Integer type, Integer current) {
         String typeStr = (type == null) ? NULL_TYPE : type.toString();
@@ -93,9 +149,10 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         }
         List<ResourceVO> vos = BeanUtil.copyToList(records, ResourceVO.class);
         List<Long> ids = records.stream().map(TResource::getId).toList();
-        List<TResourceStock> stocks = stockService.query()
-                .in("resource_id", ids)
-                .list();
+        List<TResourceStock> stocks = stockMapper.selectList(
+                new LambdaQueryWrapper<TResourceStock>()
+                        .in(TResourceStock::getResourceId, ids)
+        );
         List<ResourceStockVO> stockVOList = BeanUtil.copyToList(stocks, ResourceStockVO.class);
         Map<Long, List<ResourceStockVO>> stockMap = stockVOList.stream()
                 .collect(Collectors.groupingBy(ResourceStockVO::getResourceId));
@@ -110,7 +167,12 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
 
 
     @Override
-    public Result queryResourceUserPage(Integer type, Integer current) {
+    public Result queryResourceUserPage(String name, Integer type, Integer current) {
+        // 如果有名字搜索，直接查数据库，不走缓存
+        if (StrUtil.isNotBlank(name)) {
+            return Result.ok(getResourceVOS(name, type, current));
+        }
+
         String hashKey = buildPageCacheKey(type, current);
 
         // 先检查是否有空值标记（防缓存穿透）
@@ -126,7 +188,7 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         }
 
         // 缓存未命中，查数据库
-        List<ResourceVO> vos = getResourceVOS(type, current);
+        List<ResourceVO> vos = getResourceVOS(null, type, current);
 
         // 防缓存穿透：空数据标记
         if (CollUtil.isEmpty(vos)) {
@@ -245,53 +307,8 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     }
 
 
-    @Override
-    public Result queryResourceStockById(Long id) {
-        String key = CACHE_RESOURCE_KEY + id;
-        if(!resourceStockRBloomFilter.contains(key)){
-            return Result.fail("数据不存在！");
-        }
-        // 检查是否有空值标记
-        Boolean hasEmptyFlag = stringRedisTemplate.opsForHash().hasKey(key, EMPTY_FLAG);
-        if (hasEmptyFlag) {
-            return Result.ok(Collections.emptyList());
-        }
 
-        // 获取该资源下的所有库存记录
-        Map<Object, Object> entries = stringRedisTemplate.opsForHash().entries(key);
 
-        // 缓存未命中，查数据库
-        if (entries.isEmpty()) {
-            List<TResourceStock> stocks = stockService.query()
-                    .eq("resource_id", id)
-                    .list();
-
-            // 防止缓存穿透
-            if (CollUtil.isEmpty(stocks)) {
-                stringRedisTemplate.opsForHash().put(key, EMPTY_FLAG, "1");
-                stringRedisTemplate.expire(key, Duration.ofMinutes(5));
-                return Result.ok(Collections.emptyList());
-            }
-
-            // 批量存入 Hash：field=stockId, value=JSON
-            Map<String, String> stockMap = stocks.stream()
-                    .collect(Collectors.toMap(
-                            stock -> String.valueOf(stock.getId()),
-                            JSONUtil::toJsonStr
-                    ));
-
-            stringRedisTemplate.opsForHash().putAll(key, stockMap);
-            stringRedisTemplate.expire(key, Duration.ofMinutes(30));
-            return Result.ok(stocks);
-        }
-
-        // 缓存命中，反序列化
-        List<TResourceStock> stocks = entries.values().stream()
-                .map(obj -> JSONUtil.toBean(obj.toString(), TResourceStock.class))
-                .collect(Collectors.toList());
-
-        return Result.ok(stocks);
-    }
 
     /**
      * 更新单条库存到缓存
@@ -325,35 +342,56 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         return value != null ? JSONUtil.toBean(value.toString(), TResourceStock.class) : null;
     }
 
+    @Override
+    public Result updateResource(ResourceDTO resourceDTO) {
+        TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
+        updateById(resource);
+        // 清空该资源类型的分页缓存（因为资源信息可能变化）
+        clearTypeCache(resource.getType());
+        return Result.ok();
+    }
 
     @Override
-    @Transactional
-    public Result saveOrUpdateResource(ResourceDTO resourceDTO) {
+    public Result saveResource(ResourceDTO resourceDTO) {
         TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
-        saveOrUpdate(resource);
-
-        TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
-        stock.setResourceId(resource.getId());
-        Long stockId = resourceDTO.getStockId();
-        if (stockId != null) {
-            stock.setId(stockId);
-        }
-        stockService.saveOrUpdate(stock);
-
-        // 处理订单库存缓存
-        String key = ORDER_STOCK_KEY + stock.getId();
-        stringRedisTemplate.delete(key);
-        stringRedisTemplate.opsForValue().set(key, stock.getRemainStock().toString());
-
+        save(resource);
         // 清空该资源类型的分页缓存（因为资源信息可能变化）
         clearTypeCache(resource.getType());
         String resourceKey = CACHE_RESOURCE_KEY + resource.getId();
-        if(!resourceStockRBloomFilter.contains(resourceKey)){
-            resourceStockRBloomFilter.add(resourceKey);
+        if(!resourceStockBloomFilter.contains(resourceKey)){
+            resourceStockBloomFilter.add(resourceKey);
         }
-
         return Result.ok();
     }
+
+//    @Override
+//    @Transactional
+//    public Result saveOrUpdateResource(ResourceDTO resourceDTO) {
+//        TResource resource = BeanUtil.copyProperties(resourceDTO, TResource.class);
+//        saveOrUpdate(resource);
+//
+//        TResourceStock stock = BeanUtil.copyProperties(resourceDTO, TResourceStock.class);
+//        stock.setResourceId(resource.getId());
+//        Long stockId = resourceDTO.getStockId();
+//        if (stockId != null) {
+//            stock.setId(stockId);
+//        }
+//        stockService.saveOrUpdate(stock);
+//
+//        // 处理订单库存缓存
+//        String key = ORDER_STOCK_KEY + stock.getId();
+//        stringRedisTemplate.delete(key);
+//        stringRedisTemplate.opsForValue().set(key, stock.getRemainStock().toString());
+//
+//        // 清空该资源类型的分页缓存（因为资源信息可能变化）
+//        clearTypeCache(resource.getType());
+//        String resourceKey = CACHE_RESOURCE_KEY + resource.getId();
+//        if(!resourceStockRBloomFilter.contains(resourceKey)){
+//            resourceStockRBloomFilter.add(resourceKey);
+//        }
+//
+//        return Result.ok();
+//    }
 
     @Override
     @Transactional
@@ -374,8 +412,9 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
     }
 
 
-    private List<ResourceVO> getResourceVOS(Integer type, Integer current) {
+    private List<ResourceVO> getResourceVOS(String name, Integer type, Integer current) {
         Page<TResource> page = query()
+                .like(StrUtil.isNotBlank(name), "name", name)
                 .eq(type != null, "type", type)
                 .eq("status", 1)
                 .page(new Page<>(current, MAX_PAGE_SIZE));
@@ -388,9 +427,10 @@ public class TResourceServiceImpl extends ServiceImpl<TResourceMapper, TResource
         List<ResourceVO> vos = BeanUtil.copyToList(records, ResourceVO.class);
         List<Long> ids = records.stream().map(TResource::getId).toList();
 
-        List<TResourceStock> stocks = stockService.query()
-                .in("resource_id", ids)
-                .list();
+        List<TResourceStock> stocks = stockMapper.selectList(
+                new LambdaQueryWrapper<TResourceStock>()
+                        .in(TResourceStock::getResourceId, ids)
+        );
 
         Map<Long, List<TResourceStock>> stockMap = stocks.stream()
                 .collect(Collectors.groupingBy(TResourceStock::getResourceId));

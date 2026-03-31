@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
  * @author tomorrowmust
  * @since 2026-03-21
  */
-@Tag(name = "管理员相关接口")
+@Tag(name = "管理员操作资源相关接口")
 @RestController
 @RequestMapping("/admin/resource")
 public class TResourceAdminController {
@@ -26,11 +26,18 @@ public class TResourceAdminController {
     @Resource
     private ITResourceService resourceService;
 
-    @Operation(description = "新增或修改资源")
+    @Operation(description = "新增资源")
     @PostMapping
     public Result saveResource(@RequestBody ResourceDTO resourceDTO){
-        return resourceService.saveOrUpdateResource(resourceDTO);
+        return resourceService.saveResource(resourceDTO);
     }
+
+    @Operation(description = "修改资源")
+    @PutMapping
+    public Result updateResource(@RequestBody ResourceDTO resourceDTO){
+        return resourceService.updateResource(resourceDTO);
+    }
+
     @Operation(description = "删除资源")
     @DeleteMapping("/{id}")
     public Result deleteResource(@PathVariable Long id){

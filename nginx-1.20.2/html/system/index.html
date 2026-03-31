@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧预约系统 - 高并发保障</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        body {
+            font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+        }
+
+        .card-shadow {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            @apply bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98];
+        }
+
+        .input-focus {
+            @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+        }
+    </style>
+</head>
+
+<body class="bg-[#F8FAFC] text-slate-900 min-h-screen" x-data="app()">
+    <!-- Navigation -->
+    <nav class="glass-nav border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                    </div>
+                    <span
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-violet-600">智慧预约</span>
+                </div>
+
+                <div class="hidden md:flex space-x-1">
+                    <button @click="activeTab = 'home'"
+                        :class="activeTab === 'home' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                        资源浏览
+                    </button>
+                    <button @click="activeTab = 'bookings'; fetchMyBookings()"
+                        :class="activeTab === 'bookings' ? 'bg-indigo-50 text-indigo-600' : 'text-slate-600 hover:bg-slate-50'"
+                        class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors">
+                        我的预约
+                    </button>
+                    <a href="admin.html" target="_blank"
+                        class="text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center">
+                        管理后台
+                    </a>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <template x-if="!isLoggedIn">
+                        <button @click="showLogin = true"
+                            class="btn-primary px-5 py-2 rounded-xl text-sm font-semibold shadow-lg shadow-indigo-200">
+                            立即登录
+                        </button>
+                    </template>
+                    <template x-if="isLoggedIn">
+                        <div class="flex items-center space-x-4 bg-slate-100 pl-4 pr-2 py-1.5 rounded-2xl">
+                            <span class="text-sm font-medium text-slate-600" x-text="user.phone"></span>
+                            <button @click="logout"
+                                class="bg-white text-slate-600 hover:text-red-600 p-1.5 rounded-xl transition-colors shadow-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                                    </path>
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        <!-- Tab: Home (Resource Browsing) -->
+        <div x-show="activeTab === 'home'" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <!-- Header & Search -->
+            <div class="mb-10">
+                <h1 class="text-4xl font-extrabold text-slate-900 tracking-tight">发现优质资源</h1>
+                <p class="mt-3 text-lg text-slate-500 max-w-2xl">在高并发场景下为您提供最稳定的预约体验。即刻选择您心仪的时段。</p>
+
+                <div
+                    class="mt-8 flex flex-col md:flex-row gap-4 p-4 bg-white rounded-2xl border border-slate-200 card-shadow">
+                    <div class="flex-1 relative">
+                        <input type="text" x-model="searchQuery" @input.debounce.500ms="fetchResources(1)"
+                            placeholder="搜索场馆、课程或服务名称..."
+                            class="w-full bg-slate-50 border-none rounded-xl pl-12 pr-4 py-3 text-sm input-focus">
+                        <svg class="w-5 h-5 absolute left-4 top-3.5 text-slate-400" fill="none" stroke="currentColor"
+                            viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="w-full md:w-48">
+                        <select x-model="selectedType" @change="fetchResources(1)"
+                            class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm input-focus appearance-none">
+                            <option value="">全部类型</option>
+                            <option value="1">羽毛球场</option>
+                            <option value="2">篮球场</option>
+                            <option value="3">医生诊室</option>
+                            <option value="4">会议室</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resource Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <template x-for="resource in resources" :key="resource.id">
+                    <div
+                        class="bg-white rounded-3xl border border-slate-100 overflow-hidden card-shadow group hover:border-indigo-200 transition-all">
+                        <div
+                            class="aspect-[4/3] bg-indigo-50 flex items-center justify-center relative overflow-hidden">
+                            <!-- 根据类型显示不同图片 -->
+                            <img :src="getResourceImage(resource.type)" :alt="resource.name"
+                                class="object-cover w-full h-full transition-transform duration-500 group-hover:scale-110">
+
+                            <div class="absolute top-4 left-4">
+                                <span
+                                    class="bg-white/90 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-indigo-600 border border-indigo-100"
+                                    x-text="getTypeName(resource.type)"></span>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <h3 class="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors"
+                                x-text="resource.name"></h3>
+                            <div class="mt-4 flex flex-wrap gap-4 text-xs font-medium text-slate-500">
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></div>
+                                    剩余: <span class="text-slate-900 ml-1" x-text="resource.remainStock || 0"></span>
+                                </div>
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 rounded-full bg-slate-300 mr-2"></div>
+                                    总量: <span class="text-slate-900 ml-1" x-text="resource.totalStock || 0"></span>
+                                </div>
+                            </div>
+                            <button @click="openBookingModal(resource)"
+                                class="mt-6 w-full btn-primary py-3 rounded-2xl font-bold text-sm shadow-md shadow-indigo-100">
+                                立即预约
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Empty State -->
+            <template x-if="resources.length === 0">
+                <div class="py-20 text-center">
+                    <div
+                        class="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                        <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9.172 9.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-900">暂无资源</h3>
+                    <p class="text-slate-500 mt-1">没有找到符合条件的资源，请尝试其他搜索词。</p>
+                </div>
+            </template>
+
+            <!-- Pagination -->
+            <div class="mt-12 flex items-center justify-center space-x-4">
+                <button @click="fetchResources(currentPage - 1)" :disabled="currentPage === 1"
+                    class="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7">
+                        </path>
+                    </svg>
+                </button>
+                <span class="text-sm font-bold text-slate-900 px-4 py-2 bg-indigo-50 rounded-xl text-indigo-600"
+                    x-text="currentPage"></span>
+                <button @click="fetchResources(currentPage + 1)" :disabled="resources.length < 10"
+                    class="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-30 hover:bg-slate-50 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab: My Bookings -->
+        <div x-show="activeTab === 'bookings'" x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h1 class="text-3xl font-extrabold text-slate-900">我的预约</h1>
+                        <p class="mt-2 text-slate-500">管理您的所有预约订单及其状态。</p>
+                    </div>
+                    <button @click="fetchMyBookings(1)"
+                        class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <template x-for="order in myBookings" :key="order.id">
+                        <div
+                            class="bg-white p-6 rounded-3xl border border-slate-100 card-shadow flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div class="flex items-center space-x-4">
+                                <div
+                                    class="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                                        </path>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm font-bold text-slate-400">#<span
+                                                x-text="order.orderNo"></span></span>
+                                        <span :class="getStatusClass(order.status)"
+                                            class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                            x-text="getStatusName(order.status)"></span>
+                                    </div>
+                                    <h3 class="text-lg font-bold text-slate-900 mt-1"
+                                        x-text="`资源 ID: ${order.resourceId}`"></h3>
+                                    <p class="text-sm text-slate-500 mt-1 flex items-center">
+                                        <svg class="w-4 h-4 mr-1.5 text-slate-400" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                        </svg>
+                                        <span x-text="`${order.stockDate} ${order.slotStart}`"></span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-3">
+                                <template x-if="order.status === 1">
+                                    <button @click="cancelBooking(order.id)"
+                                        class="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-sm font-bold transition-colors">
+                                        取消预约
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <template x-if="myBookings.length === 0">
+                        <div class="py-20 text-center bg-white rounded-3xl border border-dashed border-slate-300">
+                            <p class="text-slate-400 font-medium">暂无预约记录</p>
+                            <button @click="activeTab = 'home'"
+                                class="mt-4 text-indigo-600 font-bold text-sm hover:underline">立即去浏览资源</button>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Pagination (My Bookings) -->
+                <template x-if="myBookings.length > 0">
+                    <div class="mt-8 flex justify-center space-x-2">
+                        <button @click="fetchMyBookings(bookingPage - 1)" :disabled="bookingPage === 1"
+                            class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm disabled:opacity-30">上一页</button>
+                        <button @click="fetchMyBookings(bookingPage + 1)" :disabled="myBookings.length < 5"
+                            class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm disabled:opacity-30">下一页</button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </main>
+
+    <!-- Login Modal -->
+    <div x-show="showLogin" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" @click="showLogin = false"></div>
+        <div class="bg-white rounded-[2rem] w-full max-w-md p-10 relative card-shadow border border-slate-100"
+            x-transition:enter="transition ease-out duration-300" x-transition:enter-start="scale-95 opacity-0"
+            x-transition:enter-end="scale-100 opacity-100">
+            <div class="text-center mb-10">
+                <div
+                    class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 00-2 2zm10-10V7a4 4 0 00-8 0v4h8z">
+                        </path>
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-extrabold text-slate-900">欢迎登录</h2>
+                <p class="mt-2 text-slate-500">登录以享受快捷预约与管理功能</p>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label
+                        class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">手机号码</label>
+                    <div class="flex space-x-3">
+                        <input type="tel" x-model="loginForm.phone" placeholder="13800000000"
+                            class="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm input-focus">
+                        <button @click="sendCode" :disabled="counting"
+                            class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-4 py-2 rounded-2xl text-xs font-bold disabled:opacity-50 transition-colors whitespace-nowrap"
+                            x-text="counting ? countdown + 's' : '发送验证码'"></button>
+                    </div>
+                </div>
+                <div>
+                    <label
+                        class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">验证码</label>
+                    <input type="text" x-model="loginForm.code" placeholder="6位数字验证码"
+                        class="w-full bg-slate-50 border-none rounded-2xl px-5 py-4 text-sm input-focus">
+                </div>
+                <button @click="login"
+                    class="w-full btn-primary py-4 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-100 mt-4">
+                    进入系统
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Modal -->
+    <div x-show="showBookingModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" @click="showBookingModal = false"></div>
+        <div class="bg-white rounded-[2rem] w-full max-w-lg p-10 relative card-shadow border border-slate-100"
+            x-transition:enter="transition ease-out duration-300" x-transition:enter-start="scale-95 opacity-0"
+            x-transition:enter-end="scale-100 opacity-100">
+            <h2 class="text-2xl font-extrabold text-slate-900">确认预约时段</h2>
+
+            <div class="mt-8 flex items-start space-x-6 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                <div
+                    class="w-20 h-20 bg-indigo-100 rounded-2xl flex-shrink-0 flex items-center justify-center text-indigo-600 overflow-hidden">
+                    <img :src="getResourceImage(selectedResource?.type)" class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg text-slate-900" x-text="selectedResource?.name"></h3>
+                    <p class="text-sm text-slate-500 mt-1 leading-relaxed" x-text="getTypeName(selectedResource?.type)">
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-8 space-y-6">
+                <div>
+                    <label
+                        class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">选择可用库存时段</label>
+                    <div class="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        <template x-for="stock in selectedResource?.stockList" :key="stock.id">
+                            <label
+                                :class="selectedStockId == stock.id ? 'border-indigo-600 bg-indigo-50' : 'border-slate-100 bg-white hover:border-slate-200'"
+                                class="relative flex items-center p-4 border-2 rounded-2xl cursor-pointer transition-all">
+                                <input type="radio" name="stock" :value="stock.id" x-model="selectedStockId"
+                                    class="hidden">
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-slate-900" x-text="`${stock.stockDate}`"></span>
+                                        <span
+                                            class="text-xs font-bold text-indigo-600 bg-white px-2 py-1 rounded-lg border border-indigo-100"
+                                            x-text="`余 ${stock.remainStock}`"></span>
+                                    </div>
+                                    <div class="text-sm text-slate-500 mt-1 font-medium"
+                                        x-text="`${stock.slotStart} - ${stock.slotEnd}`"></div>
+                                </div>
+                                <div x-show="selectedStockId == stock.id" class="ml-4 text-indigo-600">
+                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                            clip-rule="evenodd"></path>
+                                    </svg>
+                                </div>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="flex space-x-4 pt-4">
+                    <button @click="showBookingModal = false"
+                        class="flex-1 py-4 text-slate-600 font-bold text-lg hover:bg-slate-50 rounded-2xl transition-colors">
+                        稍后再说
+                    </button>
+                    <button @click="submitBooking"
+                        class="flex-1 btn-primary py-4 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-100">
+                        确认预约
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div x-show="toast.show" x-transition x-cloak
+        class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] w-full max-w-sm px-4">
+        <div :class="toast.type === 'error' ? 'bg-red-600' : 'bg-slate-900'"
+            class="px-6 py-4 rounded-[1.5rem] shadow-2xl flex items-center space-x-3 text-white">
+            <template x-if="toast.type === 'error'">
+                <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </template>
+            <template x-if="toast.type !== 'error'">
+                <svg class="w-6 h-6 flex-shrink-0 text-indigo-400" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </template>
+            <span class="text-sm font-bold" x-text="toast.message"></span>
+        </div>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                activeTab: 'home',
+                isLoggedIn: false,
+                user: { phone: '' },
+                showLogin: false,
+                showBookingModal: false,
+                resources: [],
+                myBookings: [],
+                currentPage: 1,
+                bookingPage: 1,
+                searchQuery: '',
+                selectedType: '',
+                selectedResource: null,
+                selectedStockId: '',
+                loginForm: { phone: '', code: '' },
+                counting: false,
+                countdown: 60,
+                toast: { show: false, message: '', type: 'info' },
+
+                init() {
+                    const token = localStorage.getItem('token');
+                    if (token) {
+                        this.isLoggedIn = true;
+                        this.user.phone = localStorage.getItem('userPhone');
+                        axios.defaults.headers.common['Authorization'] = token;
+                    }
+                    this.fetchResources();
+                },
+
+                showToast(message, type = 'info') {
+                    this.toast.message = message;
+                    this.toast.type = type;
+                    this.toast.show = true;
+                    setTimeout(() => this.toast.show = false, 3000);
+                },
+
+                // 更新类型映射
+                getTypeName(type) {
+                    const types = {
+                        1: '羽毛球场',
+                        2: '篮球场',
+                        3: '医生诊室',
+                        4: '会议室'
+                    };
+                    return types[type] || '其他资源';
+                },
+
+                // 根据类型返回对应图片 URL
+                getResourceImage(type) {
+                    const images = {
+                        1: 'https://images.unsplash.com/photo-1626224583764-847649623bf6?w=400&h=300&fit=crop', // 羽毛球场
+                        2: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&h=300&fit=crop', // 篮球场
+                        3: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=400&h=300&fit=crop', // 医生诊室
+                        4: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400&h=300&fit=crop'  // 会议室
+                    };
+                    return images[type] || 'https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=400&h=300&fit=crop';
+                },
+
+                getStatusName(status) {
+                    const statuses = { 0: '待确认', 1: '预约成功', 2: '已取消', 3: '已过期' };
+                    return statuses[status] || '未知状态';
+                },
+
+                getStatusClass(status) {
+                    const classes = {
+                        0: 'bg-amber-50 text-amber-600',
+                        1: 'bg-emerald-50 text-emerald-600',
+                        2: 'bg-slate-100 text-slate-500',
+                        3: 'bg-red-50 text-red-400'
+                    };
+                    return classes[status] || 'bg-slate-50 text-slate-400';
+                },
+
+                async sendCode() {
+                    if (!this.loginForm.phone) return this.showToast('请输入手机号', 'error');
+                    try {
+                        await axios.post('/auth/code?phone=' + this.loginForm.phone);
+                        this.showToast('验证码已发送，请查收');
+                        this.counting = true;
+                        const timer = setInterval(() => {
+                            this.countdown--;
+                            if (this.countdown <= 0) {
+                                clearInterval(timer);
+                                this.counting = false;
+                                this.countdown = 60;
+                            }
+                        }, 1000);
+                    } catch (e) {
+                        this.showToast('发送失败: ' + (e.response?.data?.errorMsg || e.message), 'error');
+                    }
+                },
+
+                async login() {
+                    if (!this.loginForm.phone || !this.loginForm.code) return this.showToast('请完整填写信息', 'error');
+                    try {
+                        const res = await axios.post('/auth/login', this.loginForm);
+                        if (res.data.success) {
+                            const token = res.data.data;
+                            localStorage.setItem('token', token);
+                            localStorage.setItem('userPhone', this.loginForm.phone);
+                            axios.defaults.headers.common['Authorization'] = token;
+                            this.isLoggedIn = true;
+                            this.user.phone = this.loginForm.phone;
+                            this.showLogin = false;
+                            this.showToast('欢迎回来！');
+                            if (this.activeTab === 'bookings') this.fetchMyBookings();
+                            this.fetchResources(this.currentPage);
+                        } else {
+                            this.showToast(res.data.errorMsg || '登录失败', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('登录出错: ' + (e.response?.data?.errorMsg || e.message), 'error');
+                    }
+                },
+
+                logout() {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('userPhone');
+                    delete axios.defaults.headers.common['Authorization'];
+                    this.isLoggedIn = false;
+                    this.activeTab = 'home';
+                    this.showToast('您已安全退出');
+                },
+
+                async fetchResources(page = 1) {
+                    this.currentPage = page;
+                    try {
+                        const res = await axios.get('/user/resource/page', {
+                            params: {
+                                current: page,
+                                type: this.selectedType,
+                                name: this.searchQuery
+                            }
+                        });
+                        if (res.data.success) {
+                            // ID 转为字符串
+                            this.resources = (res.data.data || []).map(r => ({
+                                ...r,
+                                id: String(r.id)
+                            }));
+                        } else {
+                            this.resources = [];
+                        }
+                    } catch (e) {
+                        this.showToast('获取资源失败', 'error');
+                    }
+                },
+
+                async fetchMyBookings(page = 1) {
+                    if (!this.isLoggedIn) return;
+                    this.bookingPage = page;
+                    try {
+                        const res = await axios.get('/booking/my', {
+                            params: { current: page }
+                        });
+                        if (res.data.success) {
+                            this.myBookings = (res.data.data || []).map(o => ({
+                                ...o,
+                                id: String(o.id),
+                                resourceId: String(o.resourceId)
+                            }));
+                        }
+                    } catch (e) {
+                        this.showToast('获取预约记录失败', 'error');
+                    }
+                },
+
+                async openBookingModal(resource) {
+                    if (!this.isLoggedIn) {
+                        this.showLogin = true;
+                        return;
+                    }
+                    this.selectedResource = {
+                        ...resource,
+                        id: String(resource.id),
+                        stockList: []
+                    };
+                    this.showBookingModal = true;
+                    this.selectedStockId = '';
+
+                    try {
+                        const res = await axios.get(`/user/resource/${resource.id}`);
+                        if (res.data.success) {
+                            this.selectedResource.stockList = (res.data.data || []).map(s => ({
+                                ...s,
+                                id: String(s.id),
+                                resourceId: String(s.resourceId)
+                            }));
+                        } else {
+                            this.showToast(res.data.errorMsg || '加载库存失败', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('加载详情失败', 'error');
+                    }
+                },
+
+                async submitBooking() {
+                    if (!this.selectedStockId) return this.showToast('请先选择一个预约时段', 'error');
+                    try {
+                        const res = await axios.post(`/booking?stock_id=${this.selectedStockId}`);
+                        if (res.data.success) {
+                            this.showToast('预约请求已提交，请稍后在"我的预约"中查看');
+                            this.showBookingModal = false;
+                            setTimeout(() => {
+                                this.fetchResources(this.currentPage);
+                            }, 1000);
+                        } else {
+                            this.showToast(res.data.errorMsg || '预约失败', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('提交失败: ' + (e.response?.data?.errorMsg || e.message), 'error');
+                    }
+                },
+
+                async cancelBooking(id) {
+                    if (!confirm('确定要取消这个预约吗？')) return;
+                    try {
+                        const res = await axios.put(`/booking/cancel/${id}`);
+                        if (res.data.success) {
+                            this.showToast('预约已成功取消');
+                            this.fetchMyBookings(this.bookingPage);
+                            this.fetchResources(this.currentPage);
+                        } else {
+                            this.showToast(res.data.errorMsg || '取消失败', 'error');
+                        }
+                    } catch (e) {
+                        this.showToast('操作失败: ' + (e.response?.data?.errorMsg || e.message), 'error');
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

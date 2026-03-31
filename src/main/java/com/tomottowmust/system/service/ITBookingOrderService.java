@@ -16,6 +16,9 @@ public interface ITBookingOrderService extends IService<TBookingOrder> {
 
     Result saveBookingOrder(Long stockId);
 
-
     void createOrder(Long stockId, Long userId, Long orderNum);
+
+    Result queryMyBooking(Integer current);
+
+    Result cancelBooking(Long id);
 }

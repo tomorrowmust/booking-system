@@ -1,6 +1,9 @@
 package com.tomottowmust.system.service.impl;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tomottowmust.system.common.RedisIdWorker;
 import com.tomottowmust.system.common.UserContext;
@@ -9,11 +12,14 @@ import com.tomottowmust.system.domain.dto.Result;
 import com.tomottowmust.system.domain.po.TBookingOrder;
 import com.tomottowmust.system.domain.po.TResource;
 import com.tomottowmust.system.domain.po.TResourceStock;
+import com.tomottowmust.system.domain.po.TStockChangeLog;
 import com.tomottowmust.system.domain.vo.ResourceVO;
 import com.tomottowmust.system.mapper.TBookingOrderMapper;
+import com.tomottowmust.system.mapper.TResourceStockMapper;
 import com.tomottowmust.system.service.ITBookingOrderService;
 import com.tomottowmust.system.service.ITResourceService;
 import com.tomottowmust.system.service.ITResourceStockService;
+import com.tomottowmust.system.service.ITStockChangeLogService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -46,7 +52,7 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
     private RedisIdWorker redisIdWorker;
 
     @Resource
-    private ITResourceStockService resourceStockService;
+    private TResourceStockMapper resourceStockMapper;
 
     @Resource
     private ITResourceService resourceService;
@@ -56,6 +62,9 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
 
     @Resource
     private RocketMQTemplate rocketMQTemplate;
+
+    @Resource
+    private ITStockChangeLogService logService;
 
     // Lua 脚本
     public static final DefaultRedisScript<Long> SECKILL_SCRIPT;
@@ -129,18 +138,19 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
         }
 
         // 乐观锁扣减库存
-        boolean success = resourceStockService.update()
-                .eq("id", stockId)
-                .gt("remain_stock", 0)
-                .setSql("remain_stock = remain_stock - 1, version = version + 1")
-                .update();
+        LambdaUpdateWrapper<TResourceStock> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(TResourceStock::getId, stockId)
+                .gt(TResourceStock::getRemainStock, 0);
+        updateWrapper.setSql("remain_stock = remain_stock - 1, version = version + 1");
+        
+        int rows = resourceStockMapper.update(null, updateWrapper);
 
-        if (!success) {
+        if (rows <= 0) {
             log.error("乐观锁失败，stockId={}", stockId);
             throw new RuntimeException("库存不足");
         }
 
-        TResourceStock stock = resourceStockService.getById(stockId);
+        TResourceStock stock = resourceStockMapper.selectById(stockId);
         if (stock == null) {
             log.error("库存记录不存在，stockId={}", stockId);
             throw new RuntimeException("数据不存在");
@@ -154,10 +164,64 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
         order.setResourceId(stock.getResourceId());
         order.setStockId(stockId);
         order.setUserId(userId);
+        order.setStatus(1); // 1: 成功
         save(order);
 
+        //记录日志
+        TStockChangeLog changeLog = new TStockChangeLog();
+        changeLog.setOrderNo(order.getOrderNo());
+        changeLog.setStockId(stockId);
+        changeLog.setChangeCount(1);
+        changeLog.setRemainStock(stock.getRemainStock());
+        logService.save(changeLog);
         // 缓存一致性处理
         handleCacheAfterOrder(stock);
+    }
+
+    @Override
+    public Result queryMyBooking(Integer current) {
+        Long userId = UserContext.getUser().getId();
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<TBookingOrder> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(current, 5);
+        query().eq("user_id", userId).orderByDesc("create_time").page(page);
+        
+        java.util.List<TBookingOrder> records = page.getRecords();
+        if (records.isEmpty()) {
+            return Result.ok(Collections.emptyList());
+        }
+
+        // 也可以构建 VO 来返回资源名称，为了简单暂时直接返回
+        return Result.ok(records);
+    }
+
+    @Override
+    @Transactional
+    public Result cancelBooking(Long id) {
+        Long userId = UserContext.getUser().getId();
+        TBookingOrder order = getById(id);
+        if (order == null || !order.getUserId().equals(userId)) {
+            return Result.fail("预约不存在！");
+        }
+        if (order.getStatus() != 1) {
+            return Result.fail("当前状态不可取消！");
+        }
+
+        // 更新订单状态
+        order.setStatus(2); // 2: 取消
+        updateById(order);
+
+        // 增加库存
+        Long stockId = order.getStockId();
+        LambdaUpdateWrapper<TResourceStock> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(TResourceStock::getId, stockId);
+        updateWrapper.setSql("remain_stock = remain_stock + 1");
+        resourceStockMapper.update(null, updateWrapper);
+
+        // 清理 Redis 缓存（为了保持一致性，最简单的办法是删掉相关缓存）
+        stringRedisTemplate.delete("stock:" + stockId);
+        // 如果有用户预约状态的缓存也需要清理
+        stringRedisTemplate.opsForSet().remove("order:" + stockId, userId.toString());
+
+        return Result.ok();
     }
 
     /**
@@ -225,9 +289,10 @@ public class TBookingOrderServiceImpl extends ServiceImpl<TBookingOrderMapper, T
         vo.setType(resource.getType());
 
         // 重新计算库存汇总
-        java.util.List<TResourceStock> stocks = resourceStockService.query()
-                .eq("resource_id", resourceId)
-                .list();
+        java.util.List<TResourceStock> stocks = resourceStockMapper.selectList(
+            new LambdaQueryWrapper<TResourceStock>()
+                .eq(TResourceStock::getResourceId, resourceId)
+        );
 
         int totalStock = stocks.stream().mapToInt(TResourceStock::getTotalStock).sum();
         int remainStock = stocks.stream().mapToInt(TResourceStock::getRemainStock).sum();
