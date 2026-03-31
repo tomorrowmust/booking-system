@@ -1,6 +1,5 @@
 package com.tomottowmust.system.config;
 
-import com.tomottowmust.system.domain.po.TResourceStock;
 import jakarta.annotation.Resource;
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
@@ -11,6 +10,7 @@ import static com.tomottowmust.system.domain.constant.RedisConstant.BLOOM_FILTER
 
 @Configuration
 public class BloomFilterManager {
+
     @Resource
     private RedissonClient redissonClient;
 

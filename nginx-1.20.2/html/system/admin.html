@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .input-focus {
+            @apply focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none;
+        }
+
+        .btn {
+            @apply px-4 py-2 rounded-lg text-sm font-semibold transition-colors duration-200;
+        }
+
+        .btn-primary {
+            @apply bg-indigo-600 hover:bg-indigo-700 text-white;
+        }
+
+        .btn-secondary {
+            @apply bg-slate-100 hover:bg-slate-200 text-slate-700;
+        }
+
+        .btn-danger {
+            @apply bg-red-500 hover:bg-red-600 text-white;
+        }
+
+        .nav-tab {
+            @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors duration-200 cursor-pointer;
+        }
+
+        .nav-tab-active {
+            @apply bg-indigo-600 text-white;
+        }
+
+        .nav-tab-inactive {
+            @apply text-slate-600 hover:bg-slate-100;
+        }
+
+        /* 日志类型标签样式 */
+        .log-type-decrease {
+            @apply bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-semibold;
+        }
+
+        .log-type-increase {
+            @apply bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold;
+        }
+
+        .log-type-init {
+            @apply bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50" x-data="adminApp()">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                            </path>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold text-slate-800">后台管理</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <template x-if="!isLoggedIn">
+                        <button @click="showLogin = true" class="btn btn-primary">登录</button>
+                    </template>
+                    <template x-if="isLoggedIn">
+                        <div class="flex items-center space-x-4">
+                            <span class="text-sm font-medium text-slate-600" x-text="user.phone"></span>
+                            <button @click="logout" class="text-sm text-slate-500 hover:text-red-600">退出</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 导航标签 -->
+        <div class="flex space-x-2 mb-6">
+            <button @click="currentTab = 'resources'"
+                :class="currentTab === 'resources' ? 'nav-tab-active' : 'nav-tab-inactive'" class="nav-tab">
+                资源管理
+            </button>
+            <button @click="currentTab = 'logs'; initLogs()"
+                :class="currentTab === 'logs' ? 'nav-tab-active' : 'nav-tab-inactive'" class="nav-tab">
+                库存变更日志
+            </button>
+        </div>
+
+        <!-- 资源管理页面 -->
+        <div x-show="currentTab === 'resources'" x-cloak>
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-slate-900">资源管理</h1>
+                <button @click="openResourceModal()" class="btn btn-primary">+ 新增资源</button>
+            </div>
+
+            <!-- Resource Table -->
+            <div class="bg-white shadow-md rounded-2xl overflow-hidden">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">ID
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">名称
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">类型
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                操作
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        <template x-for="resource in resources" :key="resource.id">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900"
+                                    x-text="resource.id"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-800" x-text="resource.name">
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
+                                    x-text="getTypeName(resource.type)"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                    <button @click="openStockModal(resource)" class="btn btn-secondary">管理库存</button>
+                                    <button @click="openResourceModal(resource)"
+                                        class="text-indigo-600 hover:text-indigo-900">编辑</button>
+                                    <button @click="deleteResource(resource.id)"
+                                        class="text-red-600 hover:text-red-900">删除</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 库存变更日志页面 -->
+        <div x-show="currentTab === 'logs'" x-cloak>
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-slate-900">库存变更日志</h1>
+            </div>
+
+            <!-- 搜索过滤栏 -->
+            <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+                <div class="flex flex-wrap gap-4 items-end">
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">订单号</label>
+                        <input type="text" x-model="logFilters.orderNo" @keyup.enter="fetchLogs()" placeholder="请输入订单号"
+                            class="block w-full rounded-lg border-slate-300 shadow-sm input-focus py-2 px-3">
+                    </div>
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">库存ID</label>
+                        <input type="number" x-model="logFilters.stockId" @keyup.enter="fetchLogs()"
+                            placeholder="请输入库存ID"
+                            class="block w-full rounded-lg border-slate-300 shadow-sm input-focus py-2 px-3">
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="fetchLogs()" class="btn btn-primary">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            查询
+                        </button>
+                        <button @click="resetLogFilters()" class="btn btn-secondary">重置</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 日志表格 -->
+            <div class="bg-white shadow-md rounded-2xl overflow-hidden">
+                <div class="max-h-[600px] overflow-y-auto">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    ID</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    库存ID</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    订单号</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    变更数量</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    变更后库存</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                    变更时间</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-slate-200">
+                            <template x-for="log in logList" :key="log.id">
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900" x-text="log.id"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600" x-text="log.stockId">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-mono"
+                                        x-text="log.orderNo"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium"
+                                        :class="log.changeCount > 0 ? 'text-green-600' : 'text-red-600'"
+                                        x-text="(log.changeCount > 0 ? '+' : '') + log.changeCount">
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-semibold"
+                                        x-text="log.remainStock"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500"
+                                        x-text="formatDateTime(log.createTime)"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 空状态 -->
+                <div x-show="logList.length === 0 && !logLoading" class="text-center py-12">
+                    <svg class="w-12 h-12 text-slate-300 mx-auto mb-4" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                        </path>
+                    </svg>
+                    <p class="text-slate-500">暂无日志记录</p>
+                </div>
+
+                <!-- 加载状态 -->
+                <div x-show="logLoading" class="text-center py-12">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                    <p class="text-slate-500 mt-2">加载中...</p>
+                </div>
+
+                <!-- 分页信息 - 适配后端返回结构 -->
+                <div x-show="logTotal > 0"
+                    class="bg-white px-4 py-3 flex items-center justify-between border-t border-slate-200 sm:px-6">
+                    <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                        <div>
+                            <p class="text-sm text-slate-700">
+                                共 <span class="font-medium" x-text="logTotal"></span> 条记录
+                                <span x-show="logFilters.orderNo || logFilters.stockId" class="text-slate-500 ml-2">
+                                    (已过滤)
+                                </span>
+                            </p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-slate-500">当前第 <span class="font-medium"
+                                    x-text="logPagination.current"></span> 页</span>
+                            <div class="flex space-x-1">
+                                <button @click="changeLogPage(logPagination.current - 1)"
+                                    :disabled="logPagination.current <= 1"
+                                    :class="logPagination.current <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'"
+                                    class="relative inline-flex items-center px-3 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-500">
+                                    上一页
+                                </button>
+                                <button @click="changeLogPage(logPagination.current + 1)"
+                                    :disabled="logList.length < logPagination.size"
+                                    :class="logList.length < logPagination.size ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'"
+                                    class="relative inline-flex items-center px-3 py-2 rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-500">
+                                    下一页
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Resource Modal -->
+    <div x-show="showResourceModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div class="bg-white rounded-2xl w-full max-w-md p-8" @click.away="showResourceModal = false">
+            <h2 class="text-xl font-bold mb-6" x-text="resourceForm.id ? '编辑资源' : '新增资源'"></h2>
+            <form @submit.prevent="saveResource">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">名称</label>
+                        <input type="text" x-model="resourceForm.name"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">类型</label>
+                        <select x-model="resourceForm.type"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                            <option value="1">羽毛球场</option>
+                            <option value="2">篮球场</option>
+                            <option value="3">医生诊室</option>
+                            <option value="4">会议室</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-3">
+                    <button type="button" @click="showResourceModal = false" class="btn btn-secondary">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Stock Modal -->
+    <div x-show="showStockModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div class="bg-white rounded-2xl w-full max-w-2xl p-8" @click.away="showStockModal = false">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-bold">管理库存</h2>
+                    <p class="text-slate-500" x-text="selectedResource?.name"></p>
+                </div>
+                <button @click="openStockFormModal()" class="btn btn-primary">+ 新增库存</button>
+            </div>
+            <div class="max-h-96 overflow-y-auto">
+                <table class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">日期
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">时段
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                总/剩</th>
+                            <th class="px-6 py-3 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                操作</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        <template x-for="(stock, index) in stocks" :key="stock.id">
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm" x-text="stock.stockDate"></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm"><span x-text="stock.slotStart"></span> -
+                                    <span x-text="stock.slotEnd"></span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm"><span x-text="stock.totalStock"></span>
+                                    / <span class="font-bold text-green-600" x-text="stock.remainStock"></span></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                                    <button @click="openStockFormModal(stock)"
+                                        class="text-indigo-600 hover:text-indigo-900">编辑</button>
+                                    <button @click="deleteStock(index)"
+                                        class="text-red-600 hover:text-red-900">删除</button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Form Modal -->
+    <div x-show="showStockFormModal" x-cloak
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+        <div class="bg-white rounded-2xl w-full max-w-md p-8" @click.away="showStockFormModal = false">
+            <h2 class="text-xl font-bold mb-6" x-text="stockForm.id ? '编辑库存' : '新增库存'"></h2>
+            <form @submit.prevent="saveStock">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">日期</label>
+                        <input type="date" x-model="stockForm.stockDate"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">开始时间</label>
+                        <input type="time" x-model="stockForm.slotStart"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">结束时间</label>
+                        <input type="time" x-model="stockForm.slotEnd"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700">总库存</label>
+                        <input type="number" x-model="stockForm.totalStock"
+                            class="mt-1 block w-full rounded-md border-slate-300 shadow-sm input-focus" required>
+                    </div>
+                </div>
+                <div class="mt-8 flex justify-end space-x-3">
+                    <button type="button" @click="showStockFormModal = false" class="btn btn-secondary">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div x-show="showLogin" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div class="bg-white rounded-2xl w-full max-w-md p-8 shadow-2xl" @click.away="showLogin = false">
+            <h2 class="text-2xl font-bold mb-6 text-center text-slate-800">管理员登录</h2>
+            <form @submit.prevent="login" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">手机号</label>
+                    <input type="tel" x-model="loginForm.phone"
+                        class="block w-full rounded-xl border-slate-300 shadow-sm input-focus py-2.5 px-3 bg-slate-50"
+                        placeholder="请输入手机号" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">验证码</label>
+                    <div class="flex space-x-3">
+                        <input type="text" x-model="loginForm.code"
+                            class="block w-full rounded-xl border-slate-300 shadow-sm input-focus py-2.5 px-3 bg-slate-50"
+                            placeholder="输入验证码" required>
+                        <button type="button" @click="sendCode" :disabled="countdown > 0"
+                            class="btn btn-secondary whitespace-nowrap px-6">
+                            <span x-text="countdown > 0 ? countdown + 's' : '获取验证码'"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="pt-4">
+                    <button type="submit"
+                        class="w-full btn-primary py-3 rounded-xl text-base shadow-lg shadow-indigo-200">登录</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 配置 Axios 全局拦截器
+        axios.interceptors.response.use(response => {
+            return response;
+        }, error => {
+            if (error.response && error.response.status === 401) {
+                window.dispatchEvent(new CustomEvent('unauthorized'));
+            }
+            return Promise.reject(error);
+        });
+
+        function adminApp() {
+            return {
+                isLoggedIn: false,
+                showLogin: false,
+                user: { phone: '' },
+                loginForm: { phone: '', code: '' },
+                countdown: 0,
+
+                // 当前标签页
+                currentTab: 'resources',
+
+                resources: [],
+                showResourceModal: false,
+                resourceForm: { id: null, name: '', type: '1' },
+                showStockModal: false,
+                selectedResource: null,
+                stocks: [],
+                showStockFormModal: false,
+                stockForm: { id: null, resourceId: null, stockDate: '', slotStart: '', slotEnd: '', totalStock: 10, remainStock: 10 },
+
+                // 日志相关数据 - 适配实际返回结构
+                logList: [],
+                logLoading: false,
+                logTotal: 0,  // 直接从 Result.total 获取
+                logFilters: {
+                    orderNo: '',
+                    stockId: ''
+                },
+                logPagination: {
+                    current: 1,
+                    size: 10  // 与后端 SystemConstants.MAX_PAGE_SIZE 保持一致或按需调整
+                },
+
+                init() {
+                    const token = localStorage.getItem('adminToken');
+                    if (token) {
+                        this.isLoggedIn = true;
+                        this.user.phone = localStorage.getItem('adminPhone');
+                        axios.defaults.headers.common['Authorization'] = token;
+                        this.fetchResources();
+                    } else {
+                        this.showLogin = true;
+                    }
+
+                    window.addEventListener('unauthorized', () => {
+                        this.logout();
+                        this.showLogin = true;
+                        alert('登录已过期，请重新登录');
+                    });
+                },
+
+                async sendCode() {
+                    if (!this.loginForm.phone) {
+                        alert('请输入手机号');
+                        return;
+                    }
+                    try {
+                        await axios.post('/auth/code?phone=' + this.loginForm.phone);
+                        alert('验证码发送成功（请查看控制台日志）');
+                        this.countdown = 60;
+                        const timer = setInterval(() => {
+                            this.countdown--;
+                            if (this.countdown <= 0) clearInterval(timer);
+                        }, 1000);
+                    } catch (error) {
+                        console.error('发送验证码失败:', error);
+                        alert('发送验证码失败');
+                    }
+                },
+
+                async login() {
+                    try {
+                        const response = await axios.post('/auth/login', this.loginForm);
+                        if (response.data.success) {
+                            const token = response.data.data;
+                            localStorage.setItem('adminToken', token);
+                            localStorage.setItem('adminPhone', this.loginForm.phone);
+                            axios.defaults.headers.common['Authorization'] = token;
+
+                            this.isLoggedIn = true;
+                            this.showLogin = false;
+                            this.user.phone = this.loginForm.phone;
+
+                            this.fetchResources();
+                        } else {
+                            alert(response.data.errorMsg || '登录失败');
+                        }
+                    } catch (error) {
+                        console.error('登录失败:', error);
+                        alert('登录失败，请检查网络或后端服务');
+                    }
+                },
+
+                logout() {
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminPhone');
+                    delete axios.defaults.headers.common['Authorization'];
+                    this.isLoggedIn = false;
+                    this.user.phone = '';
+                    this.resources = [];
+                    this.stocks = [];
+                    this.showLogin = true;
+                },
+
+                async fetchResources() {
+                    try {
+                        const response = await axios.get('/admin/resource');
+                        if (response.data.success) {
+                            this.resources = (response.data.data || []).map(r => ({
+                                ...r,
+                                id: String(r.id)
+                            }));
+                        }
+                    } catch (error) {
+                        console.error('Error fetching resources:', error);
+                        alert('获取资源失败');
+                    }
+                },
+
+                openResourceModal(resource = null) {
+                    if (resource) {
+                        this.resourceForm = {
+                            id: resource.id,
+                            name: resource.name,
+                            type: String(resource.type)
+                        };
+                    } else {
+                        this.resourceForm = { id: null, name: '', type: '1' };
+                    }
+                    this.showResourceModal = true;
+                },
+
+                async saveResource() {
+                    const isUpdate = !!this.resourceForm.id;
+                    const payload = {
+                        id: this.resourceForm.id,
+                        name: this.resourceForm.name,
+                        type: parseInt(this.resourceForm.type)
+                    };
+
+                    try {
+                        if (isUpdate) {
+                            await axios.put('/admin/resource', payload);
+                        } else {
+                            await axios.post('/admin/resource', payload);
+                        }
+                        this.showResourceModal = false;
+                        this.fetchResources();
+                        alert('资源保存成功');
+                    } catch (error) {
+                        console.error('Error saving resource:', error);
+                        alert('操作失败: ' + (error.response?.data?.errorMsg || error.message));
+                    }
+                },
+
+                async deleteResource(id) {
+                    if (!confirm('确定要删除这个资源吗？其关联的库存也会被删除。')) return;
+                    try {
+                        await axios.delete(`/admin/resource/${id}`);
+                        this.fetchResources();
+                        alert('资源删除成功');
+                    } catch (error) {
+                        console.error('Error deleting resource:', error);
+                        alert('删除失败');
+                    }
+                },
+
+                async openStockModal(resource) {
+                    this.selectedResource = resource;
+                    this.showStockModal = true;
+                    this.fetchStocks(resource.id);
+                },
+
+                async fetchStocks(resourceId) {
+                    try {
+                        await this.fetchResources();
+                        const resource = this.resources.find(r => r.id === resourceId);
+                        this.stocks = (resource?.stockList || []).map(s => ({
+                            ...s,
+                            id: String(s.id),
+                            resourceId: String(s.resourceId)
+                        }));
+                    } catch (error) {
+                        console.error('Error fetching stocks:', error);
+                        this.stocks = [];
+                    }
+                },
+
+                openStockFormModal(stock = null) {
+                    if (stock) {
+                        this.stockForm = {
+                            ...stock,
+                            id: String(stock.id),
+                            resourceId: String(stock.resourceId)
+                        };
+                    } else {
+                        this.stockForm = {
+                            id: null,
+                            resourceId: this.selectedResource.id,
+                            stockDate: '',
+                            slotStart: '09:00',
+                            slotEnd: '10:00',
+                            totalStock: 10,
+                            remainStock: 10
+                        };
+                    }
+                    this.showStockFormModal = true;
+                },
+
+                async saveStock() {
+                    const isUpdate = !!this.stockForm.id;
+                    const payload = {
+                        ...this.stockForm,
+                        id: this.stockForm.id || undefined,
+                        resourceId: String(this.stockForm.resourceId),
+                        totalStock: parseInt(this.stockForm.totalStock),
+                        remainStock: parseInt(this.stockForm.totalStock)
+                    };
+
+                    try {
+                        if (isUpdate) {
+                            await axios.put('/admin/stock', payload);
+                        } else {
+                            await axios.post('/admin/stock', payload);
+                        }
+                        this.showStockFormModal = false;
+                        this.fetchStocks(this.selectedResource.id);
+                        alert('库存保存成功');
+                    } catch (error) {
+                        console.error('Error saving stock:', error);
+                        alert('操作失败: ' + (error.response?.data?.errorMsg || error.message));
+                    }
+                },
+
+                async deleteStock(index) {
+                    const stock = this.stocks[index];
+                    if (!stock) {
+                        alert('数据异常');
+                        return;
+                    }
+
+                    if (!confirm('确定要删除这个库存时段吗？')) return;
+
+                    try {
+                        await axios.delete('/admin/stock', {
+                            params: {
+                                resourceId: String(this.selectedResource.id),
+                                stockId: String(stock.id)
+                            }
+                        });
+                        this.fetchStocks(this.selectedResource.id);
+                        alert('库存删除成功');
+                    } catch (error) {
+                        console.error('Error deleting stock:', error);
+                        alert('删除失败');
+                    }
+                },
+
+                getTypeName(type) {
+                    const types = {
+                        1: '羽毛球场',
+                        2: '篮球场',
+                        3: '医生诊室',
+                        4: '会议室'
+                    };
+                    return types[type] || '未知';
+                },
+
+                // ============== 日志相关方法（已适配实际返回结构） ==============
+
+                initLogs() {
+                    if (this.logList.length === 0) {
+                        this.fetchLogs();
+                    }
+                },
+
+                async fetchLogs() {
+                    this.logLoading = true;
+                    try {
+                        const params = {
+                            current: this.logPagination.current
+                        };
+
+                        if (this.logFilters.orderNo) {
+                            params.orderNo = this.logFilters.orderNo;
+                        }
+                        if (this.logFilters.stockId) {
+                            params.stockId = this.logFilters.stockId;
+                        }
+
+                        const response = await axios.get('/admin/log/page', { params });
+
+                        if (response.data.success) {
+                            // 适配 Result.ok(List, total) 结构
+                            // data 是数组，total 在 Result 对象里
+                            this.logList = response.data.data || [];
+                            this.logTotal = response.data.total || 0;
+
+                            // 如果返回的数据为空数组但 total > 0，可能是页码超出范围
+                            if (this.logList.length === 0 && this.logTotal > 0 && this.logPagination.current > 1) {
+                                this.logPagination.current = 1;
+                                return this.fetchLogs(); // 重新请求第一页
+                            }
+                        } else {
+                            alert(response.data.errorMsg || '获取日志失败');
+                        }
+                    } catch (error) {
+                        console.error('Error fetching logs:', error);
+                        alert('获取日志失败: ' + (error.response?.data?.errorMsg || error.message));
+                    } finally {
+                        this.logLoading = false;
+                    }
+                },
+
+                resetLogFilters() {
+                    this.logFilters.orderNo = '';
+                    this.logFilters.stockId = '';
+                    this.logPagination.current = 1;
+                    this.fetchLogs();
+                },
+
+                changeLogPage(page) {
+                    if (page < 1) return;
+                    this.logPagination.current = page;
+                    this.fetchLogs();
+                },
+
+                formatDateTime(datetime) {
+                    if (!datetime) return '-';
+                    const date = new Date(datetime);
+                    return date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

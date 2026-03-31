@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
  * @author tomorrowmust
  * @since 2026-03-21
  */
-@Tag(name = "用户有关接口")
+@Tag(name = "用户验证有关接口")
 @RestController
 @RequestMapping("/auth")
 public class TUserController {

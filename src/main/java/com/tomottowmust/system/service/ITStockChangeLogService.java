@@ -1,6 +1,7 @@
 package com.tomottowmust.system.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.tomottowmust.system.domain.dto.Result;
 import com.tomottowmust.system.domain.po.TStockChangeLog;
 
 /**
@@ -13,5 +14,5 @@ import com.tomottowmust.system.domain.po.TStockChangeLog;
  */
 public interface ITStockChangeLogService extends IService<TStockChangeLog> {
 
-    com.tomottowmust.system.domain.dto.Result queryStockChangeLogPage(String orderNo, Long stockId, Integer current);
+    Result queryStockChangeLogPage(String orderNo, Long stockId, Integer current);
 }

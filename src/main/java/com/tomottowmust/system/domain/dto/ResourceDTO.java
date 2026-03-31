@@ -14,15 +14,4 @@ public class ResourceDTO {
 
     private Integer type;
 
-    private Long stockId;
-
-    private LocalDate stockDate;
-
-    private LocalTime slotStart;
-
-    private LocalTime slotEnd;
-
-    private Integer totalStock;
-
-    private Integer remainStock;
 }

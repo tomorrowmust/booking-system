@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
  * @since 2026-03-21
  */
 
-@Tag(name = "资源有关接口")
+@Tag(name = "用户操作资源有关接口")
 @RestController
 @RequestMapping("/user/resource")
 public class TResourceController {
@@ -28,9 +28,10 @@ public class TResourceController {
     @Operation(description = "分页查询资源 支持名字查询")
     @GetMapping("/page")
     public Result queryResourcePage(
+            @RequestParam(value = "name", required = false) String name,
             @RequestParam(value = "type", required = false) Integer type,
             @RequestParam(value = "current", defaultValue = "1") Integer current){
-        return resourceService.queryResourceUserPage(type,current);
+        return resourceService.queryResourceUserPage(name,type,current);
     }
 
     @Operation(description = "根据 id查询资源")

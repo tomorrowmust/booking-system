@@ -25,17 +25,13 @@ public interface ITResourceService extends IService<TResource> {
     /**
      * 用户端分页查询资源（带缓存）
      */
-    Result queryResourceUserPage(Integer type, Integer current);
+    Result queryResourceUserPage(String name, Integer type, Integer current);
 
     /**
      * 查询资源库存明细
      */
     Result queryResourceStockById(Long id);
 
-    /**
-     * 保存或更新资源
-     */
-    Result saveOrUpdateResource(ResourceDTO resourceDTO);
 
     /**
      * 删除资源（逻辑删除）
@@ -72,4 +68,7 @@ public interface ITResourceService extends IService<TResource> {
      */
     void clearTypeCache(Integer type);
 
+    Result updateResource(ResourceDTO resourceDTO);
+
+    Result saveResource(ResourceDTO resourceDTO);
 }

@@ -30,4 +30,15 @@ public class TBookingOrderController {
         return bookingOrderService.saveBookingOrder(stockId);
     }
 
+    @GetMapping("/my")
+    @Operation(description = "查询我的预约")
+    public Result queryMyBooking(@RequestParam(value = "current", defaultValue = "1") Integer current){
+        return bookingOrderService.queryMyBooking(current);
+    }
+
+    @PutMapping("/cancel/{id}")
+    @Operation(description = "取消预约")
+    public Result cancelBooking(@PathVariable Long id){
+        return bookingOrderService.cancelBooking(id);
+    }
 }
