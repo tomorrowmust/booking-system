@@ -1,5 +1,6 @@
 package com.tomottowmust.system.config;
 
+import com.tomottowmust.system.interceptor.AdminInterceptor;
 import com.tomottowmust.system.interceptor.LoginInterceptor;
 import com.tomottowmust.system.interceptor.RefreshTokenInterceptor;
 import jakarta.annotation.Resource;
@@ -25,6 +26,7 @@ public class MvcConfig implements WebMvcConfigurer {
                 "/swagger-ui/**",
                 "/v3/api-docs/**",
                 "/webjars/**"
-                );//TODO 添加需要拦截的路径
+                );
+        registry.addInterceptor(new AdminInterceptor()).addPathPatterns("/admin/**");
     }
 }
