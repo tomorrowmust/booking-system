@@ -2,6 +2,7 @@ package com.tomottowmust.system.controller;
 
 
 import com.tomottowmust.system.domain.dto.Result;
+import com.tomottowmust.system.ratelimit.RateLimit;
 import com.tomottowmust.system.service.ITResourceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,13 @@ public class TResourceController {
     @Resource
     private ITResourceService resourceService;
 
+    @RateLimit(
+            limitType = RateLimit.LimitType.IP,
+            qps = 20,
+            windowSeconds = 1,
+            algorithm = RateLimit.Algorithm.SLIDE_WINDOW,
+            message = "查询过于频繁，请稍后再试"
+    )
     @Operation(description = "分页查询资源 支持名字查询")
     @GetMapping("/page")
     public Result queryResourcePage(
@@ -34,6 +42,14 @@ public class TResourceController {
         return resourceService.queryResourceUserPage(name,type,current);
     }
 
+    @RateLimit(
+            limitType = RateLimit.LimitType.CUSTOM,
+            keyExpression = "#id",
+            qps = 500,
+            burstCapacity = 800,
+            algorithm = RateLimit.Algorithm.TOKEN_BUCKET,
+            message = "该资源访问火爆，请稍后再试"
+    )
     @Operation(description = "根据 id查询资源")
     @GetMapping("/{id}")
     public Result queryResourceById(@PathVariable Long id){

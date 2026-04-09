@@ -3,6 +3,7 @@ package com.tomottowmust.system.controller;
 
 import com.tomottowmust.system.domain.dto.ResourceStockDTO;
 import com.tomottowmust.system.domain.dto.Result;
+import com.tomottowmust.system.ratelimit.RateLimit;
 import com.tomottowmust.system.service.ITResourceStockService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,6 +26,13 @@ public class TResourceStockController {
     @Resource
     private ITResourceStockService stockService;
 
+    @RateLimit(
+            limitType = RateLimit.LimitType.USER,
+            qps = 10,
+            windowSeconds = 1,
+            algorithm = RateLimit.Algorithm.FIXED_WINDOW,
+            message = "操作太频繁"
+    )
     @GetMapping
     @Operation(description = "根据资源id和库存id获取库存")
     public Result getResourceStock(@RequestParam Long resourceId,Long stockId){
