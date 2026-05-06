@@ -29,8 +29,8 @@ spring:
     vectorstore:
       redis:
         initialize-schema: true
-        index-name: custom-index
-        prefix: custom-prefix
+        index-name: ai-index
+        prefix: "embedding:"
 
 booking:
   ai:

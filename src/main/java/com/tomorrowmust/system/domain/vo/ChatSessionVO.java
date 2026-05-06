@@ -5,13 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SessionVO {
+public class ChatSessionVO {
 
     /**
      * 会话ID，用于唯一标识当前的AI助手会话。
@@ -32,6 +33,10 @@ public class SessionVO {
      * 示例列表，包含一些使用助手的示例。
      */
     private List<Example> examples;
+    /**
+     * 修改时间
+     */
+    private LocalDateTime updateTime;
 
     /**
      * Example类表示每个示例的标题和描述。

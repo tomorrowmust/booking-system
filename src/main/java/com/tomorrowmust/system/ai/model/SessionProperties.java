@@ -1,6 +1,6 @@
 package com.tomorrowmust.system.ai.model;
 
-import com.tomorrowmust.system.domain.vo.SessionVO;
+import com.tomorrowmust.system.domain.vo.ChatSessionVO;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +25,6 @@ public class SessionProperties {
     /**
      * 示例列表，包含一些使用助手的示例。
      */
-    private List<SessionVO.Example> examples;
+    private List<ChatSessionVO.Example> examples;
 
 }

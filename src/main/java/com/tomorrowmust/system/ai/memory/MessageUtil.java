@@ -63,18 +63,17 @@ public class MessageUtil {
                         .build();
             }
             case ASSISTANT -> {
-                return new AssistantMessage(
-                        myMessage.getTextContent(),
-                        myMessage.getMetadata(),
-                        myMessage.getToolCalls(),
-                        myMessage.getMedia()
-                );
+                return AssistantMessage.builder()
+                        .content(myMessage.getTextContent())
+                        .toolCalls(myMessage.getToolCalls())
+                        .media(myMessage.getMedia())
+                        .build();
             }
             case TOOL -> {
-                return new ToolResponseMessage(
-                        myMessage.getToolResponses(),
-                        myMessage.getMetadata()
-                );
+                return ToolResponseMessage.builder()
+                        .responses(myMessage.getToolResponses())
+                        .metadata(myMessage.getMetadata())
+                        .build();
             }
         }
 

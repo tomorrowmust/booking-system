@@ -5,7 +5,7 @@ import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.tomorrowmust.system.domain.dto.Result;
 import com.tomorrowmust.system.domain.vo.ChatEventVO;
-import com.tomorrowmust.system.domain.vo.SessionVO;
+import com.tomorrowmust.system.domain.vo.ChatSessionVO;
 import com.tomorrowmust.system.service.ChatService;
 import com.tomorrowmust.system.service.IChatSessionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,22 +23,7 @@ import reactor.core.publisher.Flux;
 public class TUserAiController {
 
     @Resource
-    private ReactAgent bookingAgent;
-    @Resource
-    private IChatSessionService chatSessionService;
-    @Resource
     private ChatService chatService;
-
-    @GetMapping("getAllSession")
-
-    public Result getAllSession() {
-        return Result.ok(chatSessionService.getAllSession(StpUtil.getLoginIdAsLong()));
-    }
-
-    @PostMapping
-    public SessionVO createSession() {
-        return this.chatSessionService.createSession();
-    }
 
     @PostMapping(value = "/stream", produces = "text/event-stream")
     @Operation(summary = "调用AI回答用户问题")

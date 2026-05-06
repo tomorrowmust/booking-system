@@ -10,10 +10,16 @@ import com.tomorrowmust.system.ai.tool.ToolResultHolder;
 import com.tomorrowmust.system.domain.Enum.ChatEventTypeEnum;
 import com.tomorrowmust.system.domain.vo.ChatEventVO;
 import com.tomorrowmust.system.service.ChatService;
+import com.tomorrowmust.system.service.IChatSessionService;
+import jakarta.annotation.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -27,6 +33,10 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatClient chatClient;
     private final SystemPromptConfig systemPromptConfig;
+    private final VectorStore vectorStore;
+    private final IChatSessionService chatSessionService;
+    private final ChatModel chatModel;
+
     private static final Map<String, Boolean> GENERATE_STATUS = new ConcurrentHashMap<>();
     // 输出结束的标记
     private static final ChatEventVO STOP_EVENT = ChatEventVO.builder().eventType(ChatEventTypeEnum.STOP.getValue()).build();
@@ -38,13 +48,22 @@ public class ChatServiceImpl implements ChatService {
         StringBuilder outputBuilder = new StringBuilder();
         // 生成请求id
         var requestId = IdUtil.fastSimpleUUID();
+        // 创建RAG增强
+        var qaAdvisor = QuestionAnswerAdvisor.builder(this.vectorStore)
+                .searchRequest(SearchRequest.builder().similarityThreshold(0.6d).topK(6).build())
+                .build();
+        // 生成标题
+        String title = chatModel.call("根据" + question + "生成一个标题，要求标题能够概括问题核心，不超过20个字");
+        // 更新会话信息
+        chatSessionService.update(sessionId, title, StpUtil.getLoginIdAsLong());
 
         return chatClient.prompt()
                 .system(promptSystem -> promptSystem
                         .text(systemPromptConfig.getSystemPrompt()) // 设置系统提示语
                         .param("now", DateUtil.now()) // 设置当前时间的参数
                 )
-                .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId)
+                        .advisors(qaAdvisor))
                 .user(question)
                 .toolContext(Map.of("requestId", requestId,"userId", StpUtil.getLoginIdAsLong()))
                 .stream()
