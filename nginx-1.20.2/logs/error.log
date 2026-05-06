@@ -183,3 +183,9 @@
 2026/03/31 22:25:28 [error] 31716#24092: *460 CreateFile() "C:\Users\l\Desktop\system\nginx-1.20.2/html/system/.well-known/appspecific/com.chrome.devtools.json" failed (3: The system cannot find the path specified), client: 127.0.0.1, server: localhost, request: "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1", host: "localhost"
 2026/03/31 22:25:44 [error] 31716#24092: *460 CreateFile() "C:\Users\l\Desktop\system\nginx-1.20.2/html/system/.well-known/appspecific/com.chrome.devtools.json" failed (3: The system cannot find the path specified), client: 127.0.0.1, server: localhost, request: "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1", host: "localhost"
 2026/03/31 22:26:53 [error] 31716#24092: *468 CreateFile() "C:\Users\l\Desktop\system\nginx-1.20.2/html/system/.well-known/appspecific/com.chrome.devtools.json" failed (3: The system cannot find the path specified), client: 127.0.0.1, server: localhost, request: "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1", host: "localhost"
+2026/04/24 17:09:21 [notice] 26204#29960: signal process started
+2026/04/24 17:18:30 [error] 14568#12884: *45 connect() failed (10061: No connection could be made because the target machine actively refused it) while connecting to upstream, client: 127.0.0.1, server: localhost, request: "POST /booking?stock_id=200203 HTTP/1.1", upstream: "http://127.0.0.1:8080/?stock_id=200203", host: "localhost", referrer: "http://localhost/"
+2026/04/24 17:23:50 [notice] 31460#14920: signal process started
+2026/04/24 17:24:47 [notice] 3396#14956: signal process started
+2026/04/24 17:26:18 [notice] 3512#31600: signal process started
+2026/04/24 17:38:15 [notice] 26776#4496: signal process started

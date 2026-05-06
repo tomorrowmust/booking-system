@@ -47,11 +47,16 @@ services:
   rmqbroker:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/apache/rocketmq:5.4.0
     container_name: rmqbroker
-    command: sh -c "export JAVA_OPT_EXT='-server -Xms256m -Xmx256m -Xmn128m' && export NAMESRV_ADDR='rmqnamesrv:9876' && sh mqbroker"
+    command: sh -c "export JAVA_OPT_EXT='-server -Xms256m -Xmx256m -Xmn128m' && export NAMESRV_ADDR='rmqnamesrv:9876' && sh mqbroker -c /home/rocketmq/conf/broker.conf"
     deploy:
       resources:
         limits:
           memory: 500M
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+    volumes:
+      - ./broker.conf:/home/rocketmq/conf/broker.conf
     depends_on:
       - rmqnamesrv
     restart: always
