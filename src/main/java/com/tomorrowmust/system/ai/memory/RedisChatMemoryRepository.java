@@ -13,7 +13,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.List;
 import java.util.Set;
 
-public class RedisChatMemoryRepository implements ChatMemoryRepository {
+public class RedisChatMemoryRepository implements ChatMemoryRepository,MyChatMemoryRepository{
 
     @Resource
     private StringRedisTemplate stringRedisTemplate;
@@ -71,5 +71,12 @@ public class RedisChatMemoryRepository implements ChatMemoryRepository {
     public void deleteByConversationId(@NotNull String conversationId) {
         var redisKey = this.getKey(conversationId);
         this.stringRedisTemplate.delete(redisKey);
+    }
+
+    @Override
+    public void optimization(String conversationId) {
+        String key = getKey(conversationId);
+        BoundListOperations<String, String> listOps = stringRedisTemplate.boundListOps(key);
+        listOps.rightPop(2);
     }
 }

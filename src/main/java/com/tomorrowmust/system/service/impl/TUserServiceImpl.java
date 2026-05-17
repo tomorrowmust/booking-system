@@ -63,7 +63,10 @@ public class TUserServiceImpl extends ServiceImpl<TUserMapper, TUser> implements
         }
         StpUtil.login(user.getId());
         StpUtil.getSession().set("phone", phone);
-        return Result.ok();
+        return Result.ok(java.util.Map.of(
+                "token", StpUtil.getTokenValue(),
+                "user", java.util.Map.of("phone", phone)
+        ));
     }
 
     @Override
@@ -85,7 +88,10 @@ public class TUserServiceImpl extends ServiceImpl<TUserMapper, TUser> implements
                 .setExtra("phone", phone)
         );
 
-        return Result.ok();
+        return Result.ok(java.util.Map.of(
+                "token", StpUtil.getTokenValue(),
+                "user", java.util.Map.of("phone", phone)
+        ));
     }
 
     @Override

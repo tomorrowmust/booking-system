@@ -6,12 +6,12 @@ spring:
     name: system
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST:8.136.215.55}:${MYSQL_PORT:3306}/booking_system?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:192.168.150.128}:${MYSQL_PORT:3306}/booking_system?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:111111}
   data:
     redis:
-      host: ${REDIS_HOST:8.136.215.55}
+      host: ${REDIS_HOST:192.168.150.128}
       port: ${REDIS_PORT:6379}
       lettuce:
         pool:
@@ -22,7 +22,7 @@ spring:
 
   ai:
     dashscope:
-      api-key: ${DASHSCOPE_API_KEY}
+      api-key: ${DASHSCOPE_API_KEY:sk-7b133a6daf9a462cbec22ff40a62c506}
       chat:
         options:
           model: qwen-plus
@@ -31,6 +31,10 @@ spring:
         initialize-schema: true
         index-name: ai-index
         prefix: "embedding:"
+    # mcp:
+    #   client:
+    #     stdio:
+    #       servers-configuration: classpath:baiduMap.json
 
 booking:
   ai:
@@ -46,8 +50,13 @@ booking:
           describe: "能帮我预约一个场馆吗？"
     prompt:
       system: user.txt
+      route-agent: route-agent-system-message.txt
+      recommend-agent: recommend-agent-system-message.txt
+      booking-agent: booking-agent-system-message.txt
+      consult-agent: consult-agent-system-message.txt
     memory:
       max: 100
+    chat-type: ROUTE # ROUTE / ENHANCE / APP
 
 mybatis-plus:
   type-aliases-package: com.tomorrowmust.system.domain
@@ -78,7 +87,7 @@ knife4j:
     enable-filter-multipart-api-method-type: POST
 
 rocketmq:
-  name-server: ${ROCKETMQ_NAMESRV:8.136.215.55:9876}
+  name-server: ${ROCKETMQ_NAMESRV:192.168.150.128:9876}
   producer:
     group: booking-producer-group
 

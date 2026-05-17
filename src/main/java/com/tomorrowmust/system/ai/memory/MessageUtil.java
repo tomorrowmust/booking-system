@@ -8,6 +8,8 @@ import cn.hutool.json.JSONUtil;
 import com.tomorrowmust.system.ai.tool.ToolResultHolder;
 import org.springframework.ai.chat.messages.*;
 
+import java.util.HashMap;
+
 /**
  * 消息转换工具类，提供消息对象与JSON字符串之间的转换功能，主要用于Redis存储格式转换
  */
@@ -25,12 +27,18 @@ public class MessageUtil {
         myMessage.setTextContent(message.getText());
         if (message instanceof AssistantMessage assistantMessage) {
             myMessage.setToolCalls(assistantMessage.getToolCalls());
+
+            // 把自定义 parms 放进 metadata
+            var metadata = new HashMap<>(assistantMessage.getMetadata());
+
             var messageId = Convert.toStr(assistantMessage.getMetadata().get("id"));
             var requestId = Convert.toStr(ToolResultHolder.get(messageId, "requestId"));
             var params = ToolResultHolder.get(requestId);
             if (ObjectUtil.isNotEmpty(params)) {
-                myMessage.setParams(params);
+                metadata.put("customParams", params);  // 塞到 metadata 里
             }
+            myMessage.setMetadata(metadata);
+
             ToolResultHolder.remove(messageId);
         }
 
@@ -63,11 +71,17 @@ public class MessageUtil {
                         .build();
             }
             case ASSISTANT -> {
-                return AssistantMessage.builder()
-                        .content(myMessage.getTextContent())
-                        .toolCalls(myMessage.getToolCalls())
-                        .media(myMessage.getMedia())
-                        .build();
+                var metadata = new HashMap<>(myMessage.getMetadata());
+                if (myMessage.getParams() != null) {
+                    metadata.put("customParams", myMessage.getParams());
+                }
+                // 子类实例可以赋值给父类引用
+                return new MyAssistantMessage(
+                        myMessage.getTextContent(),
+                        metadata,
+                        myMessage.getToolCalls(),
+                        myMessage.getMedia()
+                );
             }
             case TOOL -> {
                 return ToolResponseMessage.builder()

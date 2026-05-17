@@ -33,8 +33,15 @@ public class TResourceStockController {
             message = "操作太频繁"
     )
     @GetMapping
-    @Operation(summary = "根据资源id和库存id获取库存")
-    public Result getResourceStock(@RequestParam Long resourceId,Long stockId){
-        return stockService.getResourceStock(resourceId,stockId);
+    @Operation(summary = "根据资源id获取库存列表")
+    public Result getResourceStock(@RequestParam(required = false) Long resourceId,
+                                   @RequestParam(required = false) Long stockId){
+        if (resourceId != null && stockId != null) {
+            return stockService.getResourceStock(resourceId, stockId);
+        }
+        if (resourceId != null) {
+            return Result.ok(stockService.getStockByResourceId(resourceId));
+        }
+        return Result.fail("参数错误：需要提供resourceId或resourceId+stockId");
     }
 }

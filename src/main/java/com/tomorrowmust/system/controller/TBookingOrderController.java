@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @Tag(name = "预约相关接口")
 @RestController
-@RequestMapping("/booking")
+@RequestMapping("/user/booking")
 public class TBookingOrderController {
 
     @Resource

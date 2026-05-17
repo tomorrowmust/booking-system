@@ -11,5 +11,8 @@ import org.springframework.context.annotation.Configuration;
 public class AIProperties {
 
     private String system;
-
+    private String routeAgent;
+    private String recommendAgent;
+    private String bookingAgent;
+    private String consultAgent;
 }

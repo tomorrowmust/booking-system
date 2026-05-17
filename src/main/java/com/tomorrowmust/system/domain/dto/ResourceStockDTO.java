@@ -20,4 +20,6 @@ public class ResourceStockDTO {
     private Integer totalStock;
 
     private Integer remainStock;
+    
+    private Integer stockNum;
 }

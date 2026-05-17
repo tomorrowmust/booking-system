@@ -10,7 +10,7 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 @Component
-public class StockTools {
+public class AdminStockTools {
     @Resource
     private ITResourceStockService stockService;
 

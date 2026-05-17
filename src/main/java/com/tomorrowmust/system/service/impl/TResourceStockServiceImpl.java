@@ -64,6 +64,15 @@ public class TResourceStockServiceImpl extends ServiceImpl<TResourceStockMapper,
     public Result saveResourceStock(ResourceStockDTO resourceStockDTO) {
         TResourceStock stock = BeanUtil.copyProperties(resourceStockDTO, TResourceStock.class);
         stock.setId(null);
+        
+        // 使用stockNum设置库存（前端传的是stockNum）
+        if (resourceStockDTO.getStockNum() != null) {
+            stock.setTotalStock(resourceStockDTO.getStockNum());
+            stock.setRemainStock(resourceStockDTO.getStockNum());
+        } else if (resourceStockDTO.getTotalStock() != null) {
+            stock.setRemainStock(resourceStockDTO.getTotalStock());
+        }
+        
         save(stock);
         // 处理订单库存缓存
         String key = ORDER_STOCK_KEY + stock.getId();

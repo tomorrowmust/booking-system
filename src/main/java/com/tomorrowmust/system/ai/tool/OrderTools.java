@@ -15,7 +15,7 @@ import java.util.Map;
 
 @Component
 @Slf4j
-public class OrderToolsByUser {
+public class OrderTools {
 
     @Resource
     private ITBookingOrderService orderService;

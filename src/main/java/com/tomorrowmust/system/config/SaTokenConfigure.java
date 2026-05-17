@@ -30,7 +30,9 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/webjars/**",
-                            "/user/ai/stream")
+                            "/user/ai/stream",
+                            "/user/resource/page",
+                            "/api/user/ai/stream")
                     .check(r -> StpUtil.checkLogin());
 
             // 角色校验

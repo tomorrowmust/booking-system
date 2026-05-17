@@ -1,79 +1,66 @@
-package com.tomorrowmust.system.service.impl;
+package com.tomorrowmust.system.ai.agent;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import com.tomorrowmust.system.ai.config.SystemPromptConfig;
 import com.tomorrowmust.system.ai.tool.ToolResultHolder;
 import com.tomorrowmust.system.domain.Enum.ChatEventTypeEnum;
 import com.tomorrowmust.system.domain.vo.ChatEventVO;
 import com.tomorrowmust.system.service.ChatService;
 import com.tomorrowmust.system.service.IChatSessionService;
 import jakarta.annotation.Resource;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-@Service
-@RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "booking.ai",name = "chat-type",havingValue = "ENHANCE")
-public class ChatServiceImpl implements ChatService {
+public abstract class AbstractAgent implements Agent{
 
-    private final ChatClient chatClient;
-    private final SystemPromptConfig systemPromptConfig;
-    private final VectorStore vectorStore;
-    private final IChatSessionService chatSessionService;
-    private final ChatModel chatModel;
+    @Resource
+    private ChatClient chatClient;
+    @Resource
+    private ChatMemory chatMemory;
+    @Resource
+    private ChatModel chatModel;
+    @Resource
+    private IChatSessionService chatSessionService;
+
 
     private static final Map<String, Boolean> GENERATE_STATUS = new ConcurrentHashMap<>();
     // 输出结束的标记
     private static final ChatEventVO STOP_EVENT = ChatEventVO.builder().eventType(ChatEventTypeEnum.STOP.getValue()).build();
 
     @Override
-    public Flux<ChatEventVO> chat(String question, String sessionId) {
-
-        String conversationId = ChatService.getConversationId(sessionId);
+    public Flux<ChatEventVO> processStream(String question, String sessionId) {
+        // 生成请求ID
+        String requestId = generateRequestId();
         // 大模型输出内容的缓存器，用于在输出中断后的数据存储
         StringBuilder outputBuilder = new StringBuilder();
-        // 生成请求id
-        var requestId = IdUtil.fastSimpleUUID();
-        // 创建RAG增强
-        var qaAdvisor = QuestionAnswerAdvisor.builder(this.vectorStore)
-                .searchRequest(SearchRequest.builder().similarityThreshold(0.6d).topK(6).build())
-                .build();
+        // 获取对话id
+        String conversationId = ChatService.getConversationId(sessionId);
         // 生成标题
         String title = chatModel.call("根据" + question + "生成一个标题，要求标题能够概括问题核心，不超过20个字");
         // 更新会话信息
         chatSessionService.update(sessionId, title, StpUtil.getLoginIdAsLong());
 
-        return chatClient.prompt()
-                .system(promptSystem -> promptSystem
-                        .text(systemPromptConfig.getSystemPrompt()) // 设置系统提示语
-                        .param("now", DateUtil.now()) // 设置当前时间的参数
-                )
-                .advisors(advisor -> advisor.param(ChatMemory.CONVERSATION_ID, conversationId)
-                        .advisors(qaAdvisor))
-                .user(question)
-                .toolContext(Map.of("requestId", requestId,"userId", StpUtil.getLoginIdAsLong()))
+        return getChatClientRequest(question, sessionId, requestId)
                 .stream()
                 .chatResponse()
                 .doFirst(() -> GENERATE_STATUS.put(sessionId, true)) // 第一次输出内容时执行
                 .doOnError(throwable -> GENERATE_STATUS.remove(sessionId)) // 出现异常时，删除标识
                 .doOnComplete(() -> GENERATE_STATUS.remove(sessionId)) // 完成时执行，删除标识
+                .doOnCancel(() -> {
+                    // 当输出被取消时，保存输出的内容到历史记录中
+                    this.saveStopHistoryRecord(conversationId, outputBuilder.toString());
+                })
                 .takeWhile(response -> { // 通过返回值来控制Flux流是否继续，true：继续，false：终止
                     return GENERATE_STATUS.getOrDefault(sessionId, false);
                 })
@@ -109,6 +96,43 @@ public class ChatServiceImpl implements ChatService {
                     return Flux.just(STOP_EVENT);
                 }));
     }
+    /**
+     * 保存停止输出的记录
+     *
+     * @param conversationId 对话id
+     * @param content   大模型输出的内容
+     */
+    private void saveStopHistoryRecord(String conversationId, String content) {
+        this.chatMemory.add(conversationId, new AssistantMessage(content));
+    }
+
+    @Override
+    public String process(String question, String sessionId) {
+        // 生成请求ID
+        String requestId = generateRequestId();
+
+        return getChatClientRequest(question, sessionId, requestId)
+                .call()
+                .content();
+    }
+
+    @NotNull
+    public ChatClient.ChatClientRequestSpec getChatClientRequest(String question, String sessionId, String requestId) {
+        return chatClient.prompt()
+                .system(promptSystemSpec -> promptSystemSpec
+                        .text(systemMessage())
+                        .params(systemMessageParams()))
+                .advisors(advisorSpec -> advisorSpec
+                        .advisors(advisors())
+                        .params(advisorParams(sessionId, requestId)))
+                .tools(tools())
+                .toolContext(toolContext(sessionId, requestId))
+                .user(question);
+    }
+
+    private String generateRequestId() {
+        return IdUtil.fastSimpleUUID();
+    }
 
     @Override
     public void stop(String sessionId) {
@@ -116,4 +140,8 @@ public class ChatServiceImpl implements ChatService {
         GENERATE_STATUS.remove(sessionId);
     }
 
+    @Override
+    public Map<String, Object> advisorParams(String sessionId, String requestId) {
+        return Map.of(ChatMemory.CONVERSATION_ID, ChatService.getConversationId(sessionId));
+    }
 }
