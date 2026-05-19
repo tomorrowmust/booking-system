@@ -49,7 +49,7 @@ booking:
         - title: "ai预约"
           describe: "能帮我预约一个场馆吗？"
     prompt:
-      system: user.txt
+      system: system.txt
       route-agent: route-agent-system-message.txt
       recommend-agent: recommend-agent-system-message.txt
       booking-agent: booking-agent-system-message.txt

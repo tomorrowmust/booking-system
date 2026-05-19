@@ -3,6 +3,7 @@ package com.tomorrowmust.system.ai.agent;
 import cn.dev33.satoken.stp.StpUtil;
 import com.tomorrowmust.system.ai.config.SystemPromptConfig;
 import com.tomorrowmust.system.ai.tool.OrderTools;
+import com.tomorrowmust.system.ai.tool.ResourceTools;
 import com.tomorrowmust.system.domain.Enum.AgentTypeEnum;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ public class BookingAgent extends AbstractAgent{
 
     private final SystemPromptConfig systemPromptConfig;
     private final OrderTools orderTools;
+    private final ResourceTools resourceTools;
 
     @Override
     public AgentTypeEnum getAgentType() {
@@ -28,7 +30,7 @@ public class BookingAgent extends AbstractAgent{
 
     @Override
     public Object[] tools() {
-        return new Object[]{orderTools};
+        return new Object[]{orderTools, resourceTools};
     }
 
     @Override

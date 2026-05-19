@@ -30,8 +30,8 @@ public class ResourceTools {
     @Tool(name = "getResourceData", description = "获取资源数据")
     @SuppressWarnings("unchecked")
     public List<ResourceVO> getResourceData(
-            @ToolParam(required = false, description = "资源名称关键词，如'篮球场'、'羽毛球'、'会议室'") String resourceName,
-            @ToolParam(required = false, description = "资源类型：1-羽毛球场地，2-篮球场地，3-医生诊室，4-会议室。不传则查所有类型") Integer type,
+            @ToolParam(required = false, description = "资源名称关键词，如'篮球场'、'羽毛球'") String resourceName,
+            @ToolParam(required = false, description = "资源类型：1-羽毛球场地，2-篮球场地，3-乒乓球场地。不传则查所有类型") Integer type,
             @ToolParam(required = true, description = "页码，从1开始") Integer page) {
         Result result = resourceService.queryResourceUserPage(resourceName, type, page);
         Object data = result.getData();
@@ -40,10 +40,12 @@ public class ResourceTools {
         }
         return (List<ResourceVO>) data;
     }
+
     @Tool(name = "getStockData", description = "获取资源库存数据")
     public List<ResourceStockVO> getStockData(@ToolParam(required = true, description = "资源ID") Long resourceId){
         return stockService.getStockByResourceId(resourceId);
     }
+
     @Tool(name = "getResourceById", description = "根据id查询资源")
     public TResource getResourceById(@ToolParam(required = true, description = "资源ID") Long resourceId,
                                      ToolContext toolContext){
